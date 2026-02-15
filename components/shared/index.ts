@@ -3,3 +3,5 @@ export { ThemeToggle } from './theme-toggle';
 export { PageSkeleton } from './page-skeleton';
 export { Header } from './header';
 export { DesktopBanner } from './desktop-banner';
+export { ActiveOrderBanner } from './order-history';
+export { OrdersHeaderButton } from './order-history';

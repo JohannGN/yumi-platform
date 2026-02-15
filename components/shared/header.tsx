@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { MapPin } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
+import { OrdersHeaderButton } from './order-history';
 import { colors } from '@/config/tokens';
 import { useCartStore } from '@/stores/cart-store';
 
@@ -46,7 +47,10 @@ export function Header({ cityName, citySlug }: HeaderProps) {
           )}
         </button>
 
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <OrdersHeaderButton />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

@@ -4,9 +4,8 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { formatPrice, roundUpCents } from '@/lib/utils/rounding';
 import { paymentMethodLabels, colors, business } from '@/config/tokens';
-import { useCartStore } from '@/stores/cart-store';
-import type { CustomerInfo, DeliveryAddress, DeliveryFeeResponse } from '@/types/checkout';
-import type { PaymentMethod } from '@/types/checkout';
+import { useCartStore, generateCartItemKey } from '@/stores/cart-store';
+import type { CustomerInfo, DeliveryAddress, DeliveryFeeResponse, PaymentMethod } from '@/types/checkout';
 
 // Format order code with hyphen: P3V6H2 → P3V-6H2
 function formatOrderCode(code: string): string {
@@ -25,7 +24,6 @@ function saveOrderToHistory(order: {
   try {
     const KEY = 'yumi_order_history';
     const existing = JSON.parse(localStorage.getItem(KEY) || '[]');
-    // Add to front, keep last 10 orders
     const updated = [order, ...existing.filter((o: { code: string }) => o.code !== order.code)].slice(0, 10);
     localStorage.setItem(KEY, JSON.stringify(updated));
   } catch {
@@ -39,8 +37,6 @@ function cleanupCartLocalStorage() {
   try {
     localStorage.removeItem('yumi_cart');
     localStorage.removeItem('yumi_last_activity');
-    // Keep yumi_customer_info and yumi_saved_addresses (useful for repeat orders)
-    // Keep yumi_city and yumi_theme (user preferences)
   } catch {
     // Silent fail
   }
@@ -52,6 +48,7 @@ interface StepOrderSummaryProps {
   deliveryFee: DeliveryFeeResponse;
   paymentMethod: PaymentMethod;
   cashAmountCents?: number;
+  restaurantId: string;           // ✅ FIX: added — needed by API
   restaurantName: string;
   restaurantSlug: string;
   citySlug: string;
@@ -64,6 +61,7 @@ export function StepOrderSummary({
   deliveryFee,
   paymentMethod,
   cashAmountCents,
+  restaurantId,
   restaurantName,
   restaurantSlug,
   citySlug,
@@ -74,9 +72,9 @@ export function StepOrderSummary({
 
   const { items, clearCart } = useCartStore();
 
-  // Calculate totals with rounding
+  // ✅ FIX: CartItem uses snake_case (line_total_cents)
   const subtotalCents = useMemo(() => {
-    return items.reduce((sum, item) => sum + item.lineTotalCents, 0);
+    return items.reduce((sum, item) => sum + item.line_total_cents, 0);
   }, [items]);
 
   const deliveryFeeCents = roundUpCents(deliveryFee.fee_cents);
@@ -92,31 +90,31 @@ export function StepOrderSummary({
     setError(null);
 
     try {
-      // Build order items for API (JSONB format matching schema)
+      // ✅ FIX: CartItem fields are snake_case — map directly
       const orderItems = items.map((item) => ({
-        menu_item_id: item.menuItemId,
+        menu_item_id: item.menu_item_id,
         name: item.name,
-        variant_id: item.variantId,
-        variant_name: item.variantName,
-        base_price_cents: item.basePriceCents,
+        variant_id: item.variant_id || null,
+        variant_name: item.variant_name || null,
+        base_price_cents: item.base_price_cents,
         quantity: item.quantity,
         modifiers: item.modifiers.map((mod) => ({
-          group_name: mod.groupName,
+          group_name: mod.group_name,
           selections: mod.selections.map((sel) => ({
             name: sel.name,
-            price_cents: sel.priceCents,
+            price_cents: sel.price_cents,
           })),
         })),
-        unit_total_cents: item.unitTotalCents,
-        line_total_cents: item.lineTotalCents,
+        unit_total_cents: item.unit_total_cents,
+        line_total_cents: item.line_total_cents,
       }));
 
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          city_slug: citySlug,
-          restaurant_slug: restaurantSlug,
+          // ✅ FIX: send restaurant_id (not just slug)
+          restaurant_id: restaurantId,
           customer_name: customerInfo.name,
           customer_phone: `+51${customerInfo.phone.replace(/\D/g, '').replace(/^51/, '')}`,
           delivery_address: deliveryAddress.address,
@@ -139,10 +137,8 @@ export function StepOrderSummary({
 
       const { code, confirmation_token } = await response.json();
 
-      // ✅ Format code WITH hyphen for WhatsApp (P3V-6H2)
       const formattedCode = formatOrderCode(code);
 
-      // ✅ Save order to local history for tracking access
       saveOrderToHistory({
         code,
         restaurantName,
@@ -150,20 +146,13 @@ export function StepOrderSummary({
         createdAt: new Date().toISOString(),
       });
 
-      // Build WhatsApp confirmation URL with FORMATTED code
       const message = `CONFIRMAR ${formattedCode}`;
       const waUrl = `https://wa.me/${business.yumiWhatsApp.replace('+', '')}?text=${encodeURIComponent(message)}`;
 
-      // ✅ Clear the cart (Zustand store)
       clearCart();
-
-      // ✅ Also clean up localStorage explicitly
       cleanupCartLocalStorage();
 
-      // Open WhatsApp in new tab
       window.open(waUrl, '_blank');
-
-      // Redirect to confirmation page
       window.location.href = `/confirmar/${confirmation_token}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error inesperado');
@@ -191,25 +180,25 @@ export function StepOrderSummary({
           Tu pedido
         </p>
         {items.map((item) => (
-          <div key={item.id} className="py-2 space-y-1">
+          <div key={generateCartItemKey(item)} className="py-2 space-y-1">
             <div className="flex justify-between items-start">
               <div className="flex-1 pr-3">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">
                   🍽️ {item.name}
-                  {item.variantName && (
-                    <span className="text-gray-500 dark:text-gray-400"> — {item.variantName}</span>
+                  {item.variant_name && (
+                    <span className="text-gray-500 dark:text-gray-400"> — {item.variant_name}</span>
                   )}
                 </p>
                 {item.modifiers.length > 0 && (
                   <div className="mt-0.5">
                     {item.modifiers.map((mod, idx) => {
                       const selectionNames = mod.selections.map((s) => {
-                        if (s.priceCents > 0) return `${s.name} (+${formatPrice(s.priceCents)})`;
+                        if (s.price_cents > 0) return `${s.name} (+${formatPrice(s.price_cents)})`;
                         return s.name;
                       });
                       return (
                         <p key={idx} className="text-xs text-gray-500 dark:text-gray-400">
-                          {mod.groupName}: {selectionNames.join(', ')}
+                          {mod.group_name}: {selectionNames.join(', ')}
                         </p>
                       );
                     })}
@@ -218,11 +207,11 @@ export function StepOrderSummary({
               </div>
               <div className="text-right shrink-0">
                 <p className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
-                  {formatPrice(item.lineTotalCents)}
+                  {formatPrice(item.line_total_cents)}
                 </p>
                 {item.quantity > 1 && (
                   <p className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
-                    x{item.quantity} · {formatPrice(item.unitTotalCents)} c/u
+                    x{item.quantity} · {formatPrice(item.unit_total_cents)} c/u
                   </p>
                 )}
               </div>

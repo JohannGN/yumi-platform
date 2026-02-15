@@ -401,7 +401,7 @@ useEffect(() => {
         }
       />
 
-      {isMobile && cartCount > 0 && restaurant.is_open && (
+      {isMobile && cartCount > 0 && (
         <FloatingCartButton count={cartCount} />
       )}
 

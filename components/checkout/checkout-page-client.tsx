@@ -15,7 +15,6 @@ import type {
   CheckoutStep,
   CheckoutFormState,
   DeliveryFeeResponse,
-  CreateOrderResponse,
 } from '@/types/checkout';
 
 interface CheckoutRestaurant {
@@ -75,9 +74,9 @@ export function CheckoutPageClient({
     }
   }, [restaurant.isOpen, restaurant.slug, city.slug, router]);
 
+  // ✅ FIX: CartItem uses snake_case (line_total_cents)
   const subtotalCents = items.reduce((sum, item) => sum + item.line_total_cents, 0);
   const deliveryFeeCents = formState.deliveryFee?.fee_cents || 0;
-  const totalCents = subtotalCents + deliveryFeeCents;
 
   const goToStep = useCallback((step: CheckoutStep) => {
     setCurrentStep(step);
@@ -86,16 +85,6 @@ export function CheckoutPageClient({
   const markCompleted = useCallback((step: CheckoutStep) => {
     setCompletedSteps((prev) => new Set(prev).add(step));
   }, []);
-
-  const handleOrderCreated = useCallback(
-    (response: CreateOrderResponse) => {
-      if (response.whatsapp_url) {
-        window.open(response.whatsapp_url, '_blank');
-      }
-      router.push(`/confirmar/${response.confirmation_token}`);
-    },
-    [router],
-  );
 
   // Desktop: show "use your phone" screen
   if (isMobile === false) {
@@ -207,9 +196,10 @@ export function CheckoutPageClient({
           {currentStep === 'payment' && (
             <StepPaymentMethod
               key="payment"
-              value={formState.payment}
-              onChange={(pay) => setFormState((prev) => ({ ...prev, payment: pay }))}
-              totalCents={totalCents}
+              subtotalCents={subtotalCents}
+              deliveryFeeCents={deliveryFeeCents}
+              selectedMethod={formState.payment.method}
+              onSelect={(method) => setFormState((prev) => ({ ...prev, payment: { ...prev.payment, method } }))}
               onNext={() => { markCompleted('payment'); goToStep('summary'); }}
               onBack={() => goToStep('address')}
             />
@@ -218,16 +208,15 @@ export function CheckoutPageClient({
           {currentStep === 'summary' && formState.deliveryFee && (
             <StepOrderSummary
               key="summary"
-              customer={formState.customer}
-              address={formState.address}
-              payment={formState.payment}
+              customerInfo={formState.customer}
+              deliveryAddress={formState.address}
               deliveryFee={formState.deliveryFee}
-              items={items}
+              paymentMethod={formState.payment.method}
               restaurantId={restaurant.id}
               restaurantName={restaurant.name}
-              cityId={restaurant.cityId}
+              restaurantSlug={restaurant.slug}
+              citySlug={city.slug}
               onBack={() => goToStep('payment')}
-              onOrderCreated={handleOrderCreated}
             />
           )}
         </AnimatePresence>

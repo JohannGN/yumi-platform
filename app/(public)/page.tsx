@@ -3,6 +3,7 @@ import { Header } from '@/components/shared/header';
 import { HeroSection } from '@/components/home/hero-section';
 import { CitySelector } from './city-selector';
 import { DesktopBanner } from '@/components/shared/desktop-banner';
+import { OrderHistorySection } from '@/components/shared/order-history';
 import type { City } from '@/types/database';
 
 export default async function HomePage() {
@@ -20,6 +21,9 @@ export default async function HomePage() {
         <div className="w-full max-w-sm">
           <HeroSection />
           <CitySelector cities={(cities as City[]) ?? []} />
+
+          {/* Order history: only renders if localStorage has orders */}
+          <OrderHistorySection />
 
           {/* Desktop: "order from your phone" */}
           <div className="mt-6 hidden md:block">

@@ -1,5 +1,6 @@
 import { DesktopBanner } from '@/components/shared/desktop-banner';
 import { CartDrawerWrapper } from '@/components/cart/cart-drawer-wrapper';
+import { ActiveOrderBanner } from '@/components/shared/order-history';
 
 export default function PublicLayout({
   children,
@@ -13,6 +14,7 @@ export default function PublicLayout({
         {children}
       </main>
       <CartDrawerWrapper />
+      <ActiveOrderBanner />
     </>
   );
 }

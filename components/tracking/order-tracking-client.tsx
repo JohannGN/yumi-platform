@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatPrice } from '@/lib/utils/rounding';
 import {
   colors,
-  orderStatusLabels,
   paymentMethodLabels,
   rejectionReasonLabels,
   business,
@@ -45,6 +44,7 @@ interface RiderInfo {
   phone: string | null;
   avatar_url: string | null;
   vehicle_type: string;
+  vehicle_plate?: string | null;
   current_lat: number | null;
   current_lng: number | null;
   last_location_update: string | null;
@@ -101,18 +101,65 @@ interface TrackingData {
   rider: RiderInfo | null;
 }
 
-// ─── Timeline Steps ────────────────────────────────────────
+// ─── Timeline Steps (with contextual messages) ─────────────
 
-const TIMELINE_STEPS = [
-  { status: 'pending_confirmation', icon: '📋', label: 'Pedido recibido' },
-  { status: 'confirmed', icon: '✅', label: 'Confirmado' },
-  { status: 'preparing', icon: '👨‍🍳', label: 'Preparando' },
-  { status: 'ready', icon: '📦', label: 'Listo' },
-  { status: 'assigned_rider', icon: '🏍️', label: 'Rider asignado' },
-  { status: 'picked_up', icon: '🛵', label: 'Recogido' },
-  { status: 'in_transit', icon: '🚀', label: 'En camino' },
-  { status: 'delivered', icon: '🎉', label: 'Entregado' },
-] as const;
+interface TimelineStep {
+  status: string;
+  icon: string;
+  label: string;
+  getContextMessage: (restaurantName: string) => string;
+}
+
+const TIMELINE_STEPS: TimelineStep[] = [
+  {
+    status: 'pending_confirmation',
+    icon: '📋',
+    label: 'Pedido recibido',
+    getContextMessage: (r) => `Recibido en ${r}, esperando su confirmación`,
+  },
+  {
+    status: 'confirmed',
+    icon: '✅',
+    label: 'Confirmado',
+    getContextMessage: (r) => `${r} ha confirmado tu pedido`,
+  },
+  {
+    status: 'preparing',
+    icon: '👨‍🍳',
+    label: 'Preparando',
+    getContextMessage: (r) => `${r} está cocinando para ti`,
+  },
+  {
+    status: 'ready',
+    icon: '📦',
+    label: 'Listo',
+    getContextMessage: () => `Tu pedido está listo para recoger`,
+  },
+  {
+    status: 'assigned_rider',
+    icon: '🏍️',
+    label: 'Rider asignado',
+    getContextMessage: () => `Hemos asignado un rider para ti`,
+  },
+  {
+    status: 'picked_up',
+    icon: '🛵',
+    label: 'Recogido',
+    getContextMessage: () => `El rider recogió tu pedido del restaurante`,
+  },
+  {
+    status: 'in_transit',
+    icon: '🚀',
+    label: 'En camino',
+    getContextMessage: () => `Tu pedido va en camino hacia ti`,
+  },
+  {
+    status: 'delivered',
+    icon: '🎉',
+    label: '¡Entregado!',
+    getContextMessage: () => `¡Buen provecho! Gracias por pedir con YUMI`,
+  },
+];
 
 function getStepIndex(status: string): number {
   const idx = TIMELINE_STEPS.findIndex((s) => s.status === status);
@@ -132,6 +179,12 @@ function formatTimestamp(ts: string | null): string {
     minute: '2-digit',
   }).format(new Date(ts));
 }
+
+const vehicleIcons: Record<string, string> = {
+  motorcycle: '🏍️',
+  bicycle: '🚲',
+  car: '🚗',
+};
 
 // ─── Main Component ────────────────────────────────────────
 
@@ -286,7 +339,6 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
 
     const initMap = async () => {
       if (typeof google === 'undefined') {
-        // Load Google Maps script
         const script = document.createElement('script');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}`;
         script.async = true;
@@ -341,7 +393,7 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
         riderMarkerRef.current = new google.maps.Marker({
           position: { lat: data.rider.current_lat, lng: data.rider.current_lng },
           map,
-          label: { text: '🏍️', fontSize: '24px' },
+          label: { text: vehicleIcons[data.rider.vehicle_type] || '🏍️', fontSize: '24px' },
           title: data.rider.name,
         });
       }
@@ -361,7 +413,6 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
 
   const updateRiderMarker = (lat: number, lng: number) => {
     if (riderMarkerRef.current) {
-      // Smooth animation
       const start = riderMarkerRef.current.getPosition();
       if (!start) {
         riderMarkerRef.current.setPosition({ lat, lng });
@@ -433,12 +484,13 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
   const currentStepIdx = getStepIndex(order.status);
   const isTerminal = ['delivered', 'cancelled', 'rejected'].includes(order.status);
   const formattedCode = `${order.code.slice(0, 3)}-${order.code.slice(3)}`;
+  const restaurantName = order.restaurant.name;
 
   // Map status to timestamp
   const statusTimestamps: Record<string, string | null> = {
-    pending_confirmation: order.confirmed_at,
+    pending_confirmation: order.confirmed_at || order.created_at,
     confirmed: order.restaurant_confirmed_at,
-    preparing: order.restaurant_confirmed_at, // same as confirmed for now
+    preparing: order.restaurant_confirmed_at,
     ready: order.ready_at,
     assigned_rider: order.assigned_at,
     picked_up: order.picked_up_at,
@@ -452,35 +504,90 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
       {showConfetti && <ConfettiOverlay />}
 
       <div className="max-w-[430px] mx-auto pb-8">
-        {/* Header */}
+        {/* ─── Header (redesigned) ────────────────────── */}
         <div className="sticky top-0 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <a href="/" className="shrink-0">
-              <span className="text-xl font-black" style={{ color: colors.brand.primary }}>
-                YUMI
-              </span>
+          <div className="flex items-center justify-between px-4 py-3">
+            <a
+              href="/"
+              className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors shrink-0"
+            >
+              ← Inicio
             </a>
-            <div className="flex-1 text-center">
-              <p className="text-lg font-bold tracking-wider tabular-nums text-gray-900 dark:text-white">
+            <button
+              onClick={() => setDetailsOpen(true)}
+              className="text-center group transition-transform active:scale-95"
+            >
+              <p className="text-[10px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-semibold">
+                Código de seguimiento
+              </p>
+              <p
+                className="text-lg font-bold tracking-wider tabular-nums mt-0.5"
+                style={{ color: colors.brand.primary }}
+              >
                 {formattedCode}
               </p>
-            </div>
-            <div className="shrink-0 w-12" /> {/* Spacer for centering */}
+              <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
+                Toca para ver detalle ▾
+              </p>
+            </button>
+            <div className="shrink-0 w-12" />
           </div>
-          {/* Restaurant name */}
-          <div className="flex items-center gap-2 px-4 pb-2">
-            {order.restaurant.logo_url && (
+          {/* Restaurant context bar */}
+          <div className="flex items-center gap-2 px-4 pb-2.5">
+            {order.restaurant.logo_url ? (
               <img
                 src={order.restaurant.logo_url}
                 alt=""
-                className="w-6 h-6 rounded-full object-cover"
+                className="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-gray-700"
               />
+            ) : (
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                style={{ backgroundColor: colors.brand.primary }}
+              >
+                {restaurantName.charAt(0)}
+              </div>
             )}
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              {order.restaurant.name}
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
+              {restaurantName}
+            </span>
+            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {paymentMethodLabels[order.payment_method] || order.payment_method}
             </span>
           </div>
         </div>
+
+        {/* ─── Status Banner (current state summary) ──── */}
+        {!isTerminal && currentStepIdx >= 0 && (
+          <motion.div
+            key={order.status}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 mt-4 p-3.5 rounded-2xl border"
+            style={{
+              backgroundColor: `${getStatusColor(order.status)}10`,
+              borderColor: `${getStatusColor(order.status)}30`,
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">
+                {TIMELINE_STEPS[currentStepIdx].icon}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-sm font-bold"
+                  style={{ color: getStatusColor(order.status) }}
+                >
+                  {TIMELINE_STEPS[currentStepIdx].label}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                  {TIMELINE_STEPS[currentStepIdx].getContextMessage(restaurantName)}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Rejected state */}
         {order.status === 'rejected' && (
@@ -524,6 +631,9 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
             <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">
               Pedido cancelado
             </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Si tienes dudas, contáctanos por WhatsApp
+            </p>
             <a
               href="/"
               className="inline-block mt-2 px-6 py-2.5 rounded-xl font-semibold text-white"
@@ -534,9 +644,72 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
           </motion.div>
         )}
 
-        {/* Timeline (main feature) */}
+        {/* ─── Rider Info Card (improved, with plate + YUMI support) ── */}
+        {rider && ['assigned_rider', 'picked_up', 'in_transit'].includes(order.status) && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 mt-4 p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm"
+          >
+            <div className="flex items-center gap-3">
+              {/* Rider avatar */}
+              <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-2xl shrink-0">
+                {vehicleIcons[rider.vehicle_type] || '🏍️'}
+              </div>
+
+              {/* Rider info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                  {rider.name}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {rider.vehicle_plate && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-[11px] font-mono font-bold text-gray-700 dark:text-gray-300 tracking-wide">
+                      {rider.vehicle_plate}
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {order.status === 'assigned_rider'
+                      ? 'Yendo al restaurante'
+                      : order.status === 'picked_up'
+                        ? 'Recogió tu pedido'
+                        : 'En camino hacia ti'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Contact button → YUMI WhatsApp support (protects rider privacy) */}
+              <a
+                href={`https://wa.me/${business.yumiWhatsApp.replace('+', '')}?text=${encodeURIComponent(`Hola, necesito ayuda con mi pedido ${formattedCode}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-11 h-11 rounded-full flex items-center justify-center bg-green-100 dark:bg-green-900/40 text-lg shrink-0 transition-transform active:scale-90"
+                title="Contactar soporte YUMI"
+              >
+                💬
+              </a>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Map (appears when rider assigned) */}
+        {showMap && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 200 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+            className="mx-4 mt-4 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm"
+          >
+            <div ref={mapRef} className="w-full h-[200px]" />
+          </motion.div>
+        )}
+
+        {/* ─── Timeline (with contextual messages) ────── */}
         {!['rejected', 'cancelled'].includes(order.status) && (
-          <div className="px-4 pt-5">
+          <div className="mx-4 mt-6">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-4">
+              Seguimiento
+            </h3>
             <div className="relative">
               {TIMELINE_STEPS.map((step, idx) => {
                 const isCompleted = idx < currentStepIdx;
@@ -544,35 +717,36 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
                 const isFuture = idx > currentStepIdx;
                 const timestamp = statusTimestamps[step.status];
                 const statusColor = getStatusColor(step.status);
+                const isLast = idx === TIMELINE_STEPS.length - 1;
 
                 return (
-                  <div key={step.status} className="flex gap-4 pb-6 last:pb-0">
+                  <div key={step.status} className="flex gap-4 pb-1 last:pb-0">
                     {/* Vertical line + circle */}
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center w-10 shrink-0">
                       {/* Circle */}
                       <div className="relative">
-                        {/* Ripple rings for current step */}
+                        {/* Ripple rings for current step — SLOWED to 3s for calm UX */}
                         {isCurrent && (
                           <>
                             <span
-                              className="absolute inset-[-6px] rounded-full opacity-30"
+                              className="absolute inset-[-6px] rounded-full opacity-0"
                               style={{
                                 backgroundColor: statusColor,
-                                animation: 'ripple 1.5s ease-out infinite',
+                                animation: 'tracking-ripple 3s ease-out infinite',
                               }}
                             />
                             <span
-                              className="absolute inset-[-6px] rounded-full opacity-20"
+                              className="absolute inset-[-6px] rounded-full opacity-0"
                               style={{
                                 backgroundColor: statusColor,
-                                animation: 'ripple 1.5s ease-out infinite 0.5s',
+                                animation: 'tracking-ripple 3s ease-out infinite 1s',
                               }}
                             />
                             <span
-                              className="absolute inset-[-6px] rounded-full opacity-10"
+                              className="absolute inset-[-6px] rounded-full opacity-0"
                               style={{
                                 backgroundColor: statusColor,
-                                animation: 'ripple 1.5s ease-out infinite 1s',
+                                animation: 'tracking-ripple 3s ease-out infinite 2s',
                               }}
                             />
                           </>
@@ -584,7 +758,6 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
                             text-lg transition-all duration-500
                             ${isCurrent ? 'ring-2 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900 shadow-lg' : ''}
                             ${isCompleted ? 'bg-green-100 dark:bg-green-900/40' : ''}
-                            ${isCurrent ? '' : ''}
                             ${isFuture ? 'bg-gray-100 dark:bg-gray-800' : ''}
                           `}
                           style={
@@ -606,9 +779,9 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
                       </div>
 
                       {/* Connecting line */}
-                      {idx < TIMELINE_STEPS.length - 1 && (
+                      {!isLast && (
                         <div
-                          className={`w-0.5 flex-1 min-h-[20px] transition-colors duration-500 ${
+                          className={`w-0.5 flex-1 min-h-[24px] transition-colors duration-500 ${
                             isCompleted
                               ? 'bg-green-400 dark:bg-green-600'
                               : 'bg-gray-200 dark:bg-gray-700'
@@ -617,8 +790,8 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
                       )}
                     </div>
 
-                    {/* Label + timestamp */}
-                    <div className="flex-1 pt-2">
+                    {/* Label + context message + timestamp */}
+                    <div className={`flex-1 pt-2 ${isLast ? 'pb-0' : 'pb-4'}`}>
                       <p
                         className={`text-sm font-semibold transition-colors ${
                           isCurrent
@@ -630,14 +803,25 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
                       >
                         {step.label}
                       </p>
+
+                      {/* Contextual message */}
+                      {(isCompleted || isCurrent) && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {step.getContextMessage(restaurantName)}
+                        </p>
+                      )}
+
+                      {/* Timestamp */}
                       {(isCompleted || isCurrent) && timestamp && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums mt-0.5">
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums mt-0.5">
                           {formatTimestamp(timestamp)}
                         </p>
                       )}
+
+                      {/* Prep time estimate */}
                       {isCurrent && order.estimated_prep_time_minutes && step.status === 'preparing' && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                          ~{order.estimated_prep_time_minutes} min estimados
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          ⏱ ~{order.estimated_prep_time_minutes} min estimados
                         </p>
                       )}
                     </div>
@@ -646,46 +830,6 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
               })}
             </div>
           </div>
-        )}
-
-        {/* Map (appears when rider assigned) */}
-        {showMap && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 200 }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="mx-4 mt-4 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700"
-          >
-            <div ref={mapRef} className="w-full h-[200px]" />
-          </motion.div>
-        )}
-
-        {/* Rider info */}
-        {rider && ['assigned_rider', 'picked_up', 'in_transit'].includes(order.status) && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mx-4 mt-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center gap-3"
-          >
-            <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-lg">
-              🏍️
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">{rider.name}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Tu rider está {order.status === 'assigned_rider' ? 'en camino al restaurante' : order.status === 'picked_up' ? 'recogiendo tu pedido' : 'en camino hacia ti'}
-              </p>
-            </div>
-            {rider.phone && (
-              <a
-                href={`tel:${rider.phone}`}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-green-100 dark:bg-green-900/40 text-lg"
-                title="Llamar al rider"
-              >
-                📞
-              </a>
-            )}
-          </motion.div>
         )}
 
         {/* Rating (delivered only) */}
@@ -750,113 +894,152 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
           </motion.div>
         )}
 
-        {/* Collapsible order details */}
-        <div className="mx-4 mt-4">
-          <button
-            onClick={() => setDetailsOpen(!detailsOpen)}
-            className="w-full flex items-center justify-between py-3 text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            <span>Detalle del pedido</span>
-            <motion.span
-              animate={{ rotate: detailsOpen ? 180 : 0 }}
-              transition={{ duration: 0.2 }}
-              className="text-gray-400"
-            >
-              ▼
-            </motion.span>
-          </button>
-
-          <AnimatePresence>
-            {detailsOpen && (
+        {/* Bottom Sheet Drawer — triggered from header code */}
+        <AnimatePresence>
+          {detailsOpen && (
+            <>
+              {/* Overlay */}
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="pb-4 space-y-3">
-                  {/* Items */}
-                  {(order.items as OrderItem[]).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between gap-2 py-1.5 border-b border-dashed border-gray-200 dark:border-gray-700 last:border-0"
-                    >
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          x{item.quantity} {item.name}
-                          {item.variant_name && (
-                            <span className="text-gray-500"> — {item.variant_name}</span>
-                          )}
-                        </p>
-                        {item.modifiers?.map((mod, mIdx) => (
-                          <p key={mIdx} className="text-xs text-gray-400 dark:text-gray-500">
-                            {mod.group_name}:{' '}
-                            {mod.selections.map((s) => s.name).join(', ')}
-                          </p>
-                        ))}
-                      </div>
-                      <span className="text-sm tabular-nums text-gray-700 dark:text-gray-300 shrink-0">
-                        {formatPrice(item.line_total_cents)}
-                      </span>
-                    </div>
-                  ))}
+                className="fixed inset-0 z-40 bg-black/50"
+                onClick={() => setDetailsOpen(false)}
+              />
 
-                  {/* Totals */}
-                  <div className="pt-2 space-y-1.5">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Subtotal</span>
-                      <span className="tabular-nums text-gray-700 dark:text-gray-300">
-                        {formatPrice(order.subtotal_cents)}
-                      </span>
+              {/* Drawer */}
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="fixed bottom-0 left-0 right-0 z-50"
+              >
+                <div className="bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl max-h-[80vh] flex flex-col">
+                  {/* Drag handle + header */}
+                  <div className="pt-3 pb-2 px-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                    <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600 mx-auto mb-3" />
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                        Detalle del pedido
+                      </h3>
+                      <button
+                        onClick={() => setDetailsOpen(false)}
+                        className="w-7 h-7 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors text-sm font-bold"
+                      >
+                        –
+                      </button>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Delivery</span>
-                      <span className="tabular-nums text-gray-700 dark:text-gray-300">
-                        {formatPrice(order.delivery_fee_cents)}
+                    {/* Code + restaurant */}
+                    <div className="flex items-center gap-2 mt-1 mb-1">
+                      <span
+                        className="text-xs font-bold tracking-wider tabular-nums"
+                        style={{ color: colors.brand.primary }}
+                      >
+                        {formattedCode}
                       </span>
-                    </div>
-                    <div className="flex justify-between text-sm font-bold pt-1 border-t border-gray-200 dark:border-gray-700">
-                      <span className="text-gray-900 dark:text-white">Total</span>
-                      <span className="tabular-nums" style={{ color: colors.brand.primary }}>
-                        {formatPrice(order.total_cents)}
+                      <span className="text-gray-300 dark:text-gray-600">·</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {restaurantName}
                       </span>
                     </div>
                   </div>
 
-                  {/* Payment & delivery */}
-                  <div className="pt-2 space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    <p>
-                      <span className="font-medium">Pago:</span>{' '}
-                      {paymentMethodLabels[order.payment_method] || order.payment_method}
-                    </p>
-                    <p>
-                      <span className="font-medium">Dirección:</span>{' '}
-                      {order.delivery_address}
-                    </p>
-                    {order.delivery_instructions && (
+                  {/* Scrollable content */}
+                  <div className="overflow-y-auto overscroll-contain px-4 py-3 space-y-3">
+                    {/* Items */}
+                    {(order.items as OrderItem[]).map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between gap-2 py-1.5 border-b border-dashed border-gray-200 dark:border-gray-700 last:border-0"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            x{item.quantity} {item.name}
+                            {item.variant_name && (
+                              <span className="text-gray-500"> — {item.variant_name}</span>
+                            )}
+                          </p>
+                          {item.modifiers?.map((mod, mIdx) => (
+                            <p key={mIdx} className="text-xs text-gray-400 dark:text-gray-500">
+                              {mod.group_name}:{' '}
+                              {mod.selections.map((s) => s.name).join(', ')}
+                            </p>
+                          ))}
+                        </div>
+                        <span className="text-sm tabular-nums text-gray-700 dark:text-gray-300 shrink-0">
+                          {formatPrice(item.line_total_cents)}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* Totals */}
+                    <div className="pt-2 space-y-1.5">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Subtotal</span>
+                        <span className="tabular-nums text-gray-700 dark:text-gray-300">
+                          {formatPrice(order.subtotal_cents)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Delivery</span>
+                        <span className="tabular-nums text-gray-700 dark:text-gray-300">
+                          {formatPrice(order.delivery_fee_cents)}
+                        </span>
+                      </div>
+                      {order.discount_cents > 0 && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Descuento</span>
+                          <span className="tabular-nums">-{formatPrice(order.discount_cents)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold pt-1 border-t border-gray-200 dark:border-gray-700">
+                        <span className="text-gray-900 dark:text-white">Total</span>
+                        <span className="tabular-nums" style={{ color: colors.brand.primary }}>
+                          {formatPrice(order.total_cents)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Payment & delivery */}
+                    <div className="pt-2 space-y-1.5 text-xs text-gray-500 dark:text-gray-400 pb-4">
                       <p>
-                        <span className="font-medium">Ref:</span>{' '}
-                        {order.delivery_instructions}
+                        <span className="font-medium">Pago:</span>{' '}
+                        {paymentMethodLabels[order.payment_method] || order.payment_method}
                       </p>
-                    )}
+                      <p>
+                        <span className="font-medium">Cliente:</span>{' '}
+                        {order.customer_name}
+                      </p>
+                      <p>
+                        <span className="font-medium">Dirección:</span>{' '}
+                        {order.delivery_address}
+                      </p>
+                      {order.delivery_instructions && (
+                        <p>
+                          <span className="font-medium">Ref:</span>{' '}
+                          {order.delivery_instructions}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Ripple keyframes (injected via style tag for tracking-specific animations) */}
+      {/* Ripple keyframes — SLOWED to 3s for calm tracking UX */}
       <style jsx global>{`
-        @keyframes ripple {
+        @keyframes tracking-ripple {
           0% {
             transform: scale(0.8);
-            opacity: 1;
+            opacity: 0.4;
           }
           100% {
-            transform: scale(2.5);
+            transform: scale(2.8);
             opacity: 0;
           }
         }
@@ -873,16 +1056,28 @@ function TrackingSkeleton() {
       <div className="max-w-[430px] mx-auto">
         {/* Header skeleton */}
         <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between">
             <div className="w-12 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-            <div className="flex-1 flex justify-center">
-              <div className="w-24 h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-24 h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              <div className="w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
             </div>
             <div className="w-12" />
           </div>
           <div className="flex items-center gap-2 mt-2">
             <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
             <div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
+        </div>
+
+        {/* Status banner skeleton */}
+        <div className="mx-4 mt-4 p-4 rounded-2xl bg-gray-100 dark:bg-gray-800 animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="space-y-2 flex-1">
+              <div className="w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="w-48 h-3 bg-gray-200 dark:bg-gray-700 rounded" />
+            </div>
           </div>
         </div>
 
@@ -896,7 +1091,7 @@ function TrackingSkeleton() {
               </div>
               <div className="flex-1 pt-2 space-y-1">
                 <div className="w-28 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                <div className="w-16 h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                <div className="w-40 h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
               </div>
             </div>
           ))}
@@ -912,8 +1107,8 @@ function ConfettiOverlay() {
   return (
     <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
       {Array.from({ length: 40 }).map((_, i) => {
-        const colors = ['#FF6B35', '#FFB800', '#22C55E', '#3B82F6', '#8B5CF6', '#EC4899'];
-        const color = colors[i % colors.length];
+        const confettiColors = ['#FF6B35', '#FFB800', '#22C55E', '#3B82F6', '#8B5CF6', '#EC4899'];
+        const color = confettiColors[i % confettiColors.length];
         const left = `${Math.random() * 100}%`;
         const delay = `${Math.random() * 0.8}s`;
         const duration = `${1.5 + Math.random() * 1.5}s`;
