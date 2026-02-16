@@ -90,6 +90,14 @@ export async function PATCH(request: NextRequest) {
       if (!isNaN(min) && min >= 0 && min <= 100000) {
         updateData.min_order_cents = min;
       }
+    if (body.logo_url !== undefined) {
+      updateData.logo_url = body.logo_url || null;
+      updateData.default_logo = !body.logo_url;
+    }
+    if (body.banner_url !== undefined) {
+      updateData.banner_url = body.banner_url || null;
+      updateData.default_banner = !body.banner_url;
+    }
     }
     if (body.opening_hours !== undefined) {
       // Validate structure

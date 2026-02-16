@@ -10,6 +10,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useRestaurant } from './restaurant-context';
+import { ConfirmModal } from './confirm-modal';
 
 // Nav items config
 const NAV_ITEMS = [
@@ -164,23 +165,15 @@ export function RestaurantMobileHeader() {
 function ToggleOpenStatus() {
   const { restaurant, isLoading, refetch } = useRestaurant();
   const [isToggling, setIsToggling] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   if (isLoading || !restaurant) {
-    return (
-      <div className="h-10 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
-    );
+    return <div className="h-10 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />;
   }
 
-  const handleToggle = async () => {
-    if (isToggling) return;
+  const newState = !restaurant.is_open;
 
-    const newState = !restaurant.is_open;
-    const confirmMsg = newState
-      ? '¿Abrir tu restaurante? Empezarás a recibir pedidos.'
-      : '¿Cerrar tu restaurante? No recibirás pedidos nuevos.';
-
-    if (!window.confirm(confirmMsg)) return;
-
+  const handleConfirm = async () => {
     setIsToggling(true);
     try {
       const res = await fetch('/api/restaurant/toggle-open', {
@@ -188,49 +181,52 @@ function ToggleOpenStatus() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_open: newState }),
       });
-
-      if (res.ok) {
-        await refetch();
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Error al cambiar estado');
-      }
+      if (res.ok) await refetch();
     } catch {
-      alert('Error de conexión');
+      // silently fail
     } finally {
       setIsToggling(false);
+      setShowConfirm(false);
     }
   };
 
   return (
-    <button
-      onClick={handleToggle}
-      disabled={isToggling}
-      className={`
-        w-full flex items-center justify-between px-3 py-2.5 rounded-lg
-        text-sm font-medium transition-all duration-200
-        ${
-          restaurant.is_open
+    <>
+      <button
+        onClick={() => setShowConfirm(true)}
+        disabled={isToggling}
+        className={`
+          w-full flex items-center justify-between px-3 py-2.5 rounded-lg
+          text-sm font-medium transition-all duration-200
+          ${restaurant.is_open
             ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
             : 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
-        }
-        ${isToggling ? 'opacity-60 cursor-wait' : 'hover:opacity-80 cursor-pointer'}
-      `}
-    >
-      <div className="flex items-center gap-2">
-        <motion.div
-          className={`w-2.5 h-2.5 rounded-full ${
-            restaurant.is_open ? 'bg-green-500' : 'bg-red-500'
-          }`}
-          animate={restaurant.is_open ? { scale: [1, 1.2, 1] } : {}}
-          transition={{ repeat: Infinity, duration: 2 }}
-        />
-        <span>{restaurant.is_open ? 'Abierto' : 'Cerrado'}</span>
-      </div>
-      <span className="text-xs opacity-60">
-        {isToggling ? '...' : 'Cambiar'}
-      </span>
-    </button>
+          }
+          ${isToggling ? 'opacity-60 cursor-wait' : 'hover:opacity-80 cursor-pointer'}
+        `}
+      >
+        <div className="flex items-center gap-2">
+          <motion.div
+            className={`w-2.5 h-2.5 rounded-full ${restaurant.is_open ? 'bg-green-500' : 'bg-red-500'}`}
+            animate={restaurant.is_open ? { scale: [1, 1.2, 1] } : {}}
+            transition={{ repeat: Infinity, duration: 2 }}
+          />
+          <span>{restaurant.is_open ? 'Abierto' : 'Cerrado'}</span>
+        </div>
+        <span className="text-xs opacity-60">{isToggling ? '...' : 'Cambiar'}</span>
+      </button>
+
+      <ConfirmModal
+        isOpen={showConfirm}
+        title={newState ? '¿Abrir restaurante?' : '¿Cerrar restaurante?'}
+        message={newState ? 'Empezarás a recibir pedidos.' : 'No recibirás pedidos nuevos.'}
+        confirmLabel={newState ? 'Sí, abrir' : 'Sí, cerrar'}
+        variant={newState ? 'success' : 'danger'}
+        isLoading={isToggling}
+        onConfirm={handleConfirm}
+        onCancel={() => setShowConfirm(false)}
+      />
+    </>
   );
 }
 
@@ -239,21 +235,15 @@ function ToggleOpenStatus() {
 function ToggleOpenPill() {
   const { restaurant, isLoading, refetch } = useRestaurant();
   const [isToggling, setIsToggling] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   if (isLoading || !restaurant) {
     return <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />;
   }
 
-  const handleToggle = async () => {
-    if (isToggling) return;
+  const newState = !restaurant.is_open;
 
-    const newState = !restaurant.is_open;
-    const confirmMsg = newState
-      ? '¿Abrir tu restaurante?'
-      : '¿Cerrar tu restaurante?';
-
-    if (!window.confirm(confirmMsg)) return;
-
+  const handleConfirm = async () => {
     setIsToggling(true);
     try {
       const res = await fetch('/api/restaurant/toggle-open', {
@@ -261,41 +251,49 @@ function ToggleOpenPill() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_open: newState }),
       });
-
-      if (res.ok) {
-        await refetch();
-      }
+      if (res.ok) await refetch();
     } catch {
       // silently fail
     } finally {
       setIsToggling(false);
+      setShowConfirm(false);
     }
   };
 
   return (
-    <button
-      onClick={handleToggle}
-      disabled={isToggling}
-      className={`
-        flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
-        transition-all duration-200
-        ${
-          restaurant.is_open
+    <>
+      <button
+        onClick={() => setShowConfirm(true)}
+        disabled={isToggling}
+        className={`
+          flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
+          transition-all duration-200
+          ${restaurant.is_open
             ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
             : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'
-        }
-        ${isToggling ? 'opacity-60' : ''}
-      `}
-    >
-      <motion.div
-        className={`w-2 h-2 rounded-full ${
-          restaurant.is_open ? 'bg-green-500' : 'bg-red-500'
-        }`}
-        animate={restaurant.is_open ? { scale: [1, 1.3, 1] } : {}}
-        transition={{ repeat: Infinity, duration: 2 }}
+          }
+          ${isToggling ? 'opacity-60' : ''}
+        `}
+      >
+        <motion.div
+          className={`w-2 h-2 rounded-full ${restaurant.is_open ? 'bg-green-500' : 'bg-red-500'}`}
+          animate={restaurant.is_open ? { scale: [1, 1.3, 1] } : {}}
+          transition={{ repeat: Infinity, duration: 2 }}
+        />
+        {restaurant.is_open ? 'Abierto' : 'Cerrado'}
+      </button>
+
+      <ConfirmModal
+        isOpen={showConfirm}
+        title={newState ? '¿Abrir restaurante?' : '¿Cerrar restaurante?'}
+        message={newState ? 'Empezarás a recibir pedidos.' : 'No recibirás pedidos nuevos.'}
+        confirmLabel={newState ? 'Sí, abrir' : 'Sí, cerrar'}
+        variant={newState ? 'success' : 'danger'}
+        isLoading={isToggling}
+        onConfirm={handleConfirm}
+        onCancel={() => setShowConfirm(false)}
       />
-      {restaurant.is_open ? 'Abierto' : 'Cerrado'}
-    </button>
+    </>
   );
 }
 

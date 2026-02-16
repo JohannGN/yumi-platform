@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRestaurant } from '@/components/restaurant-panel';
 import { formatPrice } from '@/lib/utils/rounding';
-import { restaurantThemes } from '@/config/tokens';
+// restaurantThemes removed — labels hardcoded to avoid UTF-8 encoding issues
 import type { DayOfWeek, OpeningHours, DayHours } from '@/types/restaurant-panel';
 
 const DAYS: { key: DayOfWeek; label: string }[] = [
@@ -22,11 +22,13 @@ const DAYS: { key: DayOfWeek; label: string }[] = [
   { key: 'sunday', label: 'Domingo' },
 ];
 
-const THEME_OPTIONS = Object.entries(restaurantThemes).map(([key, val]) => ({
-  key,
-  label: val.label,
-  color: val.primary,
-}));
+const THEME_OPTIONS = [
+  { key: 'orange', label: 'Naranja (YUMI)', color: '#FF6B35' },
+  { key: 'red', label: 'Rojo Fuego', color: '#EF4444' },
+  { key: 'green', label: 'Verde Fresco', color: '#22C55E' },
+  { key: 'blue', label: 'Azul Oceano', color: '#3B82F6' },
+  { key: 'purple', label: 'Purpura Real', color: '#8B5CF6' },
+];
 
 export default function PerfilPage() {
   const { restaurant, refetch } = useRestaurant();
@@ -43,17 +45,87 @@ export default function PerfilPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [sameAsPhone, setSameAsPhone] = useState(false);
+
   // Init form from restaurant data
   useEffect(() => {
     if (!restaurant) return;
     setDescription(restaurant.description || '');
     setPhone(restaurant.phone || '');
     setWhatsapp(restaurant.whatsapp || '');
+    setSameAsPhone(restaurant.phone === restaurant.whatsapp && !!restaurant.phone);
     setThemeColor(restaurant.theme_color || 'orange');
     setPrepMinutes(restaurant.estimated_prep_minutes || 30);
     setMinOrderCents(restaurant.min_order_cents || 0);
     setHours(restaurant.opening_hours);
+    setLogoUrl(restaurant.logo_url || null);
+    setLogoPreview(restaurant.logo_url || null);
+    setBannerUrl(restaurant.banner_url || null);
+    setBannerPreview(restaurant.banner_url || null);
   }, [restaurant]);
+
+  // ——— Image upload ———
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'banner') => {
+    const file = e.target.files?.[0];
+    if (!file || !restaurant) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveMessage({ type: 'error', text: 'La imagen no puede pesar más de 5MB' });
+      setTimeout(() => setSaveMessage(null), 4000);
+      return;
+    }
+
+    // Preview inmediato
+    const preview = URL.createObjectURL(file);
+    if (type === 'logo') setLogoPreview(preview);
+    else setBannerPreview(preview);
+
+    setIsUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `restaurants/${restaurant.id}/${type}-${Date.now()}.${ext}`;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/yumi-images/${path}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${(await (await import('@/lib/supabase/client')).createClient().auth.getSession()).data.session?.access_token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!res.ok) throw new Error('Upload failed');
+
+      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/yumi-images/${path}`;
+
+      if (type === 'logo') {
+        setLogoUrl(publicUrl);
+        setLogoPreview(publicUrl);
+      } else {
+        setBannerUrl(publicUrl);
+        setBannerPreview(publicUrl);
+      }
+
+      setSaveMessage({ type: 'success', text: `${type === 'logo' ? 'Logo' : 'Portada'} subida. Guarda para aplicar.` });
+    } catch {
+      setSaveMessage({ type: 'error', text: 'Error al subir imagen' });
+      if (type === 'logo') setLogoPreview(logoUrl);
+      else setBannerPreview(bannerUrl);
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setSaveMessage(null), 4000);
+    }
+  };
 
   // ─── Hours editor ─────────────────────────────────────────
 
@@ -76,9 +148,11 @@ export default function PerfilPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          logo_url: logoUrl,
+          banner_url: bannerUrl,
           description,
           phone: phone || null,
-          whatsapp: whatsapp || null,
+          whatsapp: sameAsPhone ? (phone || null) : (whatsapp || null),
           theme_color: themeColor,
           estimated_prep_minutes: prepMinutes,
           min_order_cents: minOrderCents,
@@ -137,20 +211,104 @@ export default function PerfilPage() {
             <p className="text-[10px] text-gray-400 mt-0.5 text-right">{description.length}/500</p>
           </div>
 
-          {/* Phone */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+{/* Phone */}
+          <div className="space-y-3">
             <InputField
               label="Teléfono"
               value={phone}
               onChange={setPhone}
               placeholder="+51987654321"
             />
-            <InputField
-              label="WhatsApp"
-              value={whatsapp}
-              onChange={setWhatsapp}
-              placeholder="+51987654321"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="same-whatsapp"
+                checked={sameAsPhone}
+                onChange={(e) => {
+                  setSameAsPhone(e.target.checked);
+                  if (e.target.checked) setWhatsapp(phone);
+                }}
+                className="rounded border-gray-300 text-[#FF6B35] focus:ring-[#FF6B35]"
+              />
+              <label htmlFor="same-whatsapp" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                Usar el mismo número para WhatsApp
+              </label>
+            </div>
+            {!sameAsPhone && (
+              <InputField
+                label="WhatsApp"
+                value={whatsapp}
+                onChange={setWhatsapp}
+                placeholder="+51987654321"
+              />
+            )}
+            <p className="text-[10px] text-gray-400">
+              Puedes dejar ambos vacíos si no deseas mostrar contacto.
+            </p>
+          </div>
+        </div>
+      </FormSection>
+
+    {/* Logo & Banner */}
+      <FormSection title="Logo y portada">
+        <div className="space-y-5">
+          {/* Logo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Logo del restaurante
+            </label>
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 overflow-hidden flex items-center justify-center bg-gray-50 dark:bg-gray-800">
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl">🍽️</span>
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium cursor-pointer transition-all ${isUploading ? 'bg-gray-400 cursor-wait' : 'bg-[#FF6B35] hover:bg-[#E55A25] active:scale-[0.97]'}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  {isUploading ? 'Subiendo...' : 'Subir logo'}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={isUploading} onChange={(e) => handleImageUpload(e, 'logo')} />
+                </label>
+                {logoPreview && (
+                  <button onClick={() => { setLogoPreview(null); setLogoUrl(null); }} className="text-xs text-red-500 hover:text-red-600">
+                    Eliminar
+                  </button>
+                )}
+                <p className="text-[10px] text-gray-400">JPG, PNG o WebP. Max 5MB.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Banner */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Portada del restaurante
+            </label>
+            <div className="relative w-full h-32 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-800">
+              {bannerPreview ? (
+                <img src={bannerPreview} alt="Portada" className="w-full h-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                  <svg className="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <span className="text-xs">Sube una imagen de portada</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3 mt-2">
+              <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium cursor-pointer transition-all ${isUploading ? 'bg-gray-400 cursor-wait' : 'bg-[#FF6B35] hover:bg-[#E55A25] active:scale-[0.97]'}`}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                {isUploading ? 'Subiendo...' : 'Subir portada'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={isUploading} onChange={(e) => handleImageUpload(e, 'banner')} />
+              </label>
+              {bannerPreview && (
+                <button onClick={() => { setBannerPreview(null); setBannerUrl(null); }} className="text-xs text-red-500 hover:text-red-600">
+                  Eliminar
+                </button>
+              )}
+              <p className="text-[10px] text-gray-400">Recomendado: 1200x400px</p>
+            </div>
           </div>
         </div>
       </FormSection>
@@ -159,23 +317,41 @@ export default function PerfilPage() {
       <FormSection title="Color del restaurante">
         <div className="flex flex-wrap gap-3">
           {THEME_OPTIONS.map((t) => (
-            <button
+            <motion.button
               key={t.key}
               onClick={() => setThemeColor(t.key)}
+              whileTap={{ scale: 0.95 }}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all ${
                 themeColor === t.key
-                  ? 'border-gray-900 dark:border-white shadow-sm'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                  ? 'shadow-md ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-900'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm'
               }`}
+              style={{
+                borderColor: themeColor === t.key ? t.color : undefined,
+                ['--tw-ring-color' as string]: themeColor === t.key ? t.color : undefined,
+              }}
             >
               <span
-                className="w-5 h-5 rounded-full"
+                className={`w-5 h-5 rounded-full transition-transform ${themeColor === t.key ? 'scale-110' : ''}`}
                 style={{ backgroundColor: t.color }}
               />
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              <span className={`text-xs font-medium transition-colors ${
+                themeColor === t.key
+                  ? 'text-gray-900 dark:text-white'
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}>
                 {t.label}
               </span>
-            </button>
+              {themeColor === t.key && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="text-xs"
+                >
+                  ✓
+                </motion.span>
+              )}
+            </motion.button>
           ))}
         </div>
       </FormSection>

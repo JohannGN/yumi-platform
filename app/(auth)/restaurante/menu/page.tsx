@@ -240,63 +240,70 @@ function MenuItemRow({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, height: 0 }}
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
+      className={`rounded-xl border transition-all ${
         item.is_available
           ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800'
           : 'bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-800 opacity-60'
       }`}
     >
-      {/* Toggle */}
-      <button
-        onClick={onToggle}
-        className={`flex-shrink-0 w-10 h-6 rounded-full relative transition-colors ${
-          item.is_available ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-        }`}
-      >
-        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-          item.is_available ? 'left-[18px]' : 'left-0.5'
-        }`} />
-      </button>
+      <div className="flex items-center gap-3 px-4 py-3">
+        {/* Toggle */}
+        <button
+          onClick={onToggle}
+          className={`flex-shrink-0 w-10 h-6 rounded-full relative transition-colors ${
+            item.is_available ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+          }`}
+        >
+          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+            item.is_available ? 'left-[18px]' : 'left-0.5'
+          }`} />
+        </button>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-            {item.name}
-          </span>
-          {!item.is_available && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium">
-              Agotado
+        {/* Image thumbnail (if exists) */}
+        {item.image_url && (
+          <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+          </div>
+        )}
+
+        {/* Info — takes remaining space */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+              {item.name}
             </span>
-          )}
+            {!item.is_available && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium flex-shrink-0">
+                Agotado
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+            {categoryName || 'Sin categoría'}
+            {item.description && ` · ${item.description}`}
+          </p>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-          {categoryName || 'Sin categoría'}
-          {item.description && ` · ${item.description}`}
-        </p>
-      </div>
 
-      {/* Price */}
-      <span className="text-sm font-bold text-gray-900 dark:text-white tabular-nums whitespace-nowrap">
-        {formatPrice(item.base_price_cents)}
-      </span>
-
-      {/* Actions */}
-      <div className="flex gap-1">
-        <button
-          onClick={onEdit}
-          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
-          title="Editar"
-        >
-          ✏️
-        </button>
-        <button
-          onClick={onDelete}
-          className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 text-gray-400 hover:text-red-500 transition-colors"
-          title="Eliminar"
-        >
-          🗑️
-        </button>
+        {/* Price + Actions — stacked on right */}
+        <div className="flex-shrink-0 flex flex-col items-end gap-1">
+          <span className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">
+            {formatPrice(item.base_price_cents)}
+          </span>
+          <div className="flex gap-0.5">
+            <button
+              onClick={onEdit}
+              className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <span className="text-xs">✏️</span>
+            </button>
+            <button
+              onClick={onDelete}
+              className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/20 text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <span className="text-xs">🗑️</span>
+            </button>
+          </div>
+        </div>
       </div>
     </motion.div>
   );
@@ -389,6 +396,9 @@ function ItemFormModal({
   const [price, setPrice] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -396,8 +406,11 @@ function ItemFormModal({
       setDesc(item.description || '');
       setPrice(String(item.base_price_cents));
       setCategoryId(item.menu_category_id || '');
+      setImageUrl(item.image_url || '');
+      setImagePreview(item.image_url || null);
     } else {
       setName(''); setDesc(''); setPrice(''); setCategoryId('');
+      setImageUrl(''); setImagePreview(null);
     }
   }, [item, isOpen]);
 
@@ -409,8 +422,8 @@ function ItemFormModal({
       const url = '/api/restaurant/menu/items';
       const method = item ? 'PATCH' : 'POST';
       const body = item
-        ? { id: item.id, name, description: desc, base_price_cents: parseInt(price), menu_category_id: categoryId || null }
-        : { name, description: desc, base_price_cents: parseInt(price), menu_category_id: categoryId || null };
+        ? { id: item.id, name, description: desc, base_price_cents: parseInt(price), menu_category_id: categoryId || null, image_url: imageUrl || null }
+        : { name, description: desc, base_price_cents: parseInt(price), menu_category_id: categoryId || null, image_url: imageUrl || null };
 
       const res = await fetch(url, {
         method,
@@ -459,6 +472,73 @@ function ItemFormModal({
             placeholder="Descripción corta..."
             className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#FF6B35] outline-none"
           />
+        </div>
+
+        {/* Image */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Foto del plato</label>
+          <div className="flex items-center gap-3">
+            <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 overflow-hidden flex items-center justify-center bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+              {imagePreview ? (
+                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl">📷</span>
+              )}
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all ${
+                isUploadingImage ? 'bg-gray-300 cursor-wait' : 'bg-[#FF6B35] text-white hover:bg-[#E55A25] active:scale-[0.97]'
+              }`}>
+                {isUploadingImage ? 'Subiendo...' : 'Subir foto'}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={isUploadingImage}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) { alert('Max 5MB'); return; }
+
+                    setImagePreview(URL.createObjectURL(file));
+                    setIsUploadingImage(true);
+                    try {
+                      const ext = file.name.split('.').pop() || 'jpg';
+                      const path = `menu-items/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+                      const formData = new FormData();
+                      formData.append('file', file);
+
+                      const res = await fetch(
+                        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/yumi-images/${path}`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            Authorization: `Bearer ${(await (await import('@/lib/supabase/client')).createClient().auth.getSession()).data.session?.access_token}`,
+                          },
+                          body: formData,
+                        }
+                      );
+                      if (!res.ok) throw new Error('Upload failed');
+
+                      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/yumi-images/${path}`;
+                      setImageUrl(publicUrl);
+                      setImagePreview(publicUrl);
+                    } catch {
+                      alert('Error al subir imagen');
+                      setImagePreview(imageUrl || null);
+                    } finally {
+                      setIsUploadingImage(false);
+                    }
+                  }}
+                />
+              </label>
+              {imagePreview && (
+                <button onClick={() => { setImageUrl(''); setImagePreview(null); }} className="text-[10px] text-red-500 hover:text-red-600 block">
+                  Eliminar foto
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

@@ -53,6 +53,7 @@ export function OrdersKanban() {
   const { restaurant } = useRestaurant();
   const [orders, setOrders] = useState<PanelOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>('pending_confirmation');
   const [actioningId, setActioningId] = useState<string | null>(null);
 
   // Detail sheet
@@ -182,7 +183,7 @@ export function OrdersKanban() {
         // Optimistic update
         setOrders((prev) =>
           prev.map((o) =>
-            o.id === orderId ? { ...o, status: newStatus } : o
+            o.id === orderId ? { ...o, status: newStatus as PanelOrder['status'] } : o
           )
         );
       } else {
@@ -234,25 +235,92 @@ export function OrdersKanban() {
     {} as Record<string, PanelOrder[]>
   );
 
-  // ─── Render ───────────────────────────────────────────────
+// ─── Render ───────────────────────────────────────────────
 
   return (
     <>
-      {/* Kanban grid — horizontal scroll on mobile */}
-      <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:snap-none md:grid md:grid-cols-4 md:overflow-x-visible min-h-[calc(100vh-12rem)]">
+      {/* ══ MOBILE: Tabs + vertical list ══ */}
+      <div className="md:hidden">
+        {/* Tabs */}
+        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-4 overflow-x-auto">
+          {KANBAN_STATUSES.map((status) => {
+            const config = COLUMN_CONFIG[status];
+            const count = (ordersByStatus[status] || []).length;
+            const isActive = activeTab === status;
+
+            return (
+              <button
+                key={status}
+                onClick={() => setActiveTab(status)}
+                className={`
+                  flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap
+                  transition-all duration-200 flex-1 justify-center
+                  ${isActive
+                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400'
+                  }
+                `}
+              >
+                <span>{config.emoji}</span>
+                <span className="hidden min-[400px]:inline">{config.title}</span>
+                {count > 0 && (
+                  <span className={`
+                    min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold
+                    ${isActive
+                      ? 'bg-[#FF6B35] text-white'
+                      : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                    }
+                  `}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active tab content — vertical cards */}
+        <div className="space-y-3 min-h-[calc(100vh-16rem)] pb-24">
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-36 bg-white dark:bg-gray-800 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : (ordersByStatus[activeTab] || []).length > 0 ? (
+            <AnimatePresence mode="popLayout">
+              {(ordersByStatus[activeTab] || []).map((order) => (
+                <OrderCardPanel
+                  key={order.id}
+                  order={order}
+                  onAccept={handleAccept}
+                  onReject={handleReject}
+                  onPreparing={handlePreparing}
+                  onReady={handleReady}
+                  onViewDetail={setDetailOrder}
+                  isActioning={actioningId === order.id}
+                />
+              ))}
+            </AnimatePresence>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-600">
+              <span className="text-4xl mb-2">{COLUMN_CONFIG[activeTab]?.emoji}</span>
+              <p className="text-sm">Sin pedidos {COLUMN_CONFIG[activeTab]?.title.toLowerCase()}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ══ DESKTOP: 4-column grid ══ */}
+      <div className="hidden md:grid md:grid-cols-4 gap-4 min-h-[calc(100vh-12rem)]">
         {KANBAN_STATUSES.map((status) => {
           const config = COLUMN_CONFIG[status];
           const columnOrders = ordersByStatus[status] || [];
 
           return (
-            <div
-              key={status}
-              className="flex-shrink-0 w-[80vw] md:w-auto snap-center flex flex-col"
-            >
+            <div key={status} className="flex flex-col">
               {/* Column header */}
-              <div
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-t-xl border-t-4 ${config.color} ${config.bgColor}`}
-              >
+              <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-xl border-t-4 ${config.color} ${config.bgColor}`}>
                 <span className="text-lg">{config.emoji}</span>
                 <span className="text-sm font-semibold text-gray-900 dark:text-white">
                   {config.title}
