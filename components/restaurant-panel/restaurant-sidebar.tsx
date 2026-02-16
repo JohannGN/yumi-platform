@@ -156,6 +156,11 @@ export function RestaurantMobileHeader() {
         </div>
         <ToggleOpenPill />
       </div>
+
+      {/* WhatsApp status — always visible on mobile */}
+      <div className="px-4 pb-3">
+        <WhatsAppStatus compact />
+      </div>
     </header>
   );
 }
@@ -314,7 +319,7 @@ function MobilePendingDot() {
 
 // ─── WHATSAPP STATUS ────────────────────────────────────────
 
-function WhatsAppStatus() {
+function WhatsAppStatus({ compact = false }: { compact?: boolean }) {
   const { restaurant } = useRestaurant();
 
   if (!restaurant) return null;
@@ -324,17 +329,75 @@ function WhatsAppStatus() {
     ? Date.now() - new Date(lastMsg).getTime() < 24 * 60 * 60 * 1000
     : false;
 
+  if (compact) {
+    return (
+      <button
+        onClick={() => {
+          if (!isActive) {
+            window.open(`https://wa.me/51953211536?text=INICIO`, '_blank');
+          }
+        }}
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl w-full transition-all ${
+          isActive
+            ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800'
+            : 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 animate-pulse'
+        }`}
+      >
+        {/* Ripple dot */}
+        <span className="relative flex-shrink-0">
+          <span className={`block w-3 h-3 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className={`absolute inset-0 w-3 h-3 rounded-full ${isActive ? 'bg-green-400' : 'bg-red-400'} animate-ping`} />
+        </span>
+
+        <div className="flex-1 text-left">
+          <span className={`text-xs font-semibold ${isActive ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+            WhatsApp {isActive ? 'activo' : 'inactivo'}
+          </span>
+          {!isActive && (
+            <p className="text-[10px] text-red-500 dark:text-red-400 font-medium">
+              Toca para enviar INICIO.
+            </p>
+            
+          )}
+        </div>
+
+        {!isActive && (
+          <span className="text-lg flex-shrink-0">💬</span>
+        )}
+        {isActive && (
+          <span className="text-lg flex-shrink-0">✅</span>
+        )}
+      </button>
+    );
+  }
+
+  // Desktop version (sidebar footer)
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <span>{isActive ? '🟢' : '🔴'}</span>
+    <button
+      onClick={() => {
+        if (!isActive) {
+          window.open(`https://wa.me/51953211536?text=INICIO`, '_blank');
+        }
+      }}
+      className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs transition-all ${
+        isActive
+          ? 'hover:bg-green-50 dark:hover:bg-green-950/20'
+          : 'bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/40 cursor-pointer'
+      }`}
+    >
+      <span className="relative flex-shrink-0">
+        <span className={`block w-2.5 h-2.5 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+        <span className={`absolute inset-0 w-2.5 h-2.5 rounded-full ${isActive ? 'bg-green-400' : 'bg-red-400'} animate-ping`} />
+      </span>
       <span className={isActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
         WhatsApp {isActive ? 'activo' : 'inactivo'}
       </span>
       {!isActive && (
-        <span className="text-gray-400 dark:text-gray-500">
-          — Envía INICIO
+        <span className="text-gray-400 dark:text-gray-500 ml-auto">
+          Enviar INICIO →
         </span>
       )}
-    </div>
+    </button>
   );
 }
+
