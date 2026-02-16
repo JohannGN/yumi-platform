@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@/lib/supabase/client';
 import { useRestaurant } from '@/components/restaurant-panel';
 import { OrderCardPanel } from './order-card-panel';
 import { OrderDetailSheet } from './order-detail-sheet';
@@ -109,13 +109,10 @@ export function OrdersKanban() {
   useEffect(() => {
     if (!restaurant?.id) return;
 
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
 
     const channel = supabase
-      .channel('restaurant-orders')
+      .channel(`restaurant-orders-${restaurant.id}`)
       .on(
         'postgres_changes',
         {

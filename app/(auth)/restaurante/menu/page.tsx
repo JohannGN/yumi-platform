@@ -2,25 +2,38 @@
 
 // ============================================================
 // Menu Management — Categories + Items CRUD
-// Chat 5 — Fragment 5/7
+// Chat 5C — Simplified UX
+// Click on item → full edit page with modifiers
+// Modal only for creating NEW items
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatPrice } from '@/lib/utils/rounding';
+import { ConfirmModal } from '@/components/restaurant-panel/confirm-modal';
 import type { MenuItem, MenuCategory } from '@/types/restaurant-panel';
 
 export default function MenuPage() {
+  const router = useRouter();
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all' | 'uncategorized'>('all');
 
-  // Modals
+  // Modals — only for CREATING new items/categories
   const [showItemForm, setShowItemForm] = useState(false);
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
+
+  // Confirm modal
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    variant: 'danger' | 'warning';
+    onConfirm: () => void;
+  }>({ open: false, title: '', message: '', variant: 'danger', onConfirm: () => {} });
 
   // ─── Fetch data ───────────────────────────────────────────
 
@@ -43,8 +56,8 @@ export default function MenuPage() {
 
   // ─── Toggle item availability ─────────────────────────────
 
-  const toggleItem = async (itemId: string, currentAvailable: boolean) => {
-    // Optimistic update
+  const toggleItem = async (e: React.MouseEvent, itemId: string, currentAvailable: boolean) => {
+    e.stopPropagation(); // Don't navigate to item page
     setItems((prev) =>
       prev.map((i) => (i.id === itemId ? { ...i, is_available: !currentAvailable } : i))
     );
@@ -56,7 +69,6 @@ export default function MenuPage() {
         body: JSON.stringify({ id: itemId, is_available: !currentAvailable }),
       });
       if (!res.ok) {
-        // Revert
         setItems((prev) =>
           prev.map((i) => (i.id === itemId ? { ...i, is_available: currentAvailable } : i))
         );
@@ -68,34 +80,48 @@ export default function MenuPage() {
     }
   };
 
-  // ─── Delete item ──────────────────────────────────────────
+  // ─── Delete item (ConfirmModal) ──────────────────────────
 
-  const deleteItem = async (itemId: string) => {
-    if (!confirm('¿Eliminar este plato? Esta acción no se puede deshacer.')) return;
-
-    setItems((prev) => prev.filter((i) => i.id !== itemId));
-
-    try {
-      await fetch(`/api/restaurant/menu/items?id=${itemId}`, { method: 'DELETE' });
-    } catch {
-      fetchMenu(); // Revert by refetching
-    }
+  const deleteItem = (e: React.MouseEvent, itemId: string, itemName: string) => {
+    e.stopPropagation();
+    setConfirmModal({
+      open: true,
+      title: 'Eliminar plato',
+      message: `¿Eliminar "${itemName}"? Esta acción no se puede deshacer.`,
+      variant: 'danger',
+      onConfirm: async () => {
+        setItems((prev) => prev.filter((i) => i.id !== itemId));
+        try {
+          await fetch(`/api/restaurant/menu/items?id=${itemId}`, { method: 'DELETE' });
+        } catch {
+          fetchMenu();
+        }
+        setConfirmModal((prev) => ({ ...prev, open: false }));
+      },
+    });
   };
 
-  // ─── Delete category ──────────────────────────────────────
+  // ─── Delete category (ConfirmModal) ──────────────────────
 
-  const deleteCategory = async (catId: string) => {
-    if (!confirm('¿Eliminar esta categoría? Los platos se moverán a "Sin categoría".')) return;
-
-    try {
-      const res = await fetch(`/api/restaurant/menu/categories?id=${catId}`, { method: 'DELETE' });
-      if (res.ok) {
-        setSelectedCategoryId('all');
-        fetchMenu();
-      }
-    } catch {
-      alert('Error al eliminar');
-    }
+  const deleteCategory = (catId: string, catName: string) => {
+    setConfirmModal({
+      open: true,
+      title: 'Eliminar categoría',
+      message: `¿Eliminar "${catName}"? Los platos se moverán a "Sin categoría".`,
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/restaurant/menu/categories?id=${catId}`, { method: 'DELETE' });
+          if (res.ok) {
+            setSelectedCategoryId('all');
+            fetchMenu();
+          }
+        } catch {
+          console.error('Error al eliminar categoría');
+        }
+        setConfirmModal((prev) => ({ ...prev, open: false }));
+      },
+    });
   };
 
   // ─── Filter items ─────────────────────────────────────────
@@ -127,7 +153,7 @@ export default function MenuPage() {
             + Categoría
           </button>
           <button
-            onClick={() => { setEditingItem(null); setShowItemForm(true); }}
+            onClick={() => setShowItemForm(true)}
             className="px-4 py-2 rounded-lg bg-[#FF6B35] text-xs font-semibold text-white hover:bg-[#E55A25] transition-colors"
           >
             + Plato
@@ -151,7 +177,7 @@ export default function MenuPage() {
               active={selectedCategoryId === cat.id}
               onClick={() => setSelectedCategoryId(cat.id)}
               onEdit={() => { setEditingCategory(cat); setShowCategoryForm(true); }}
-              onDelete={() => deleteCategory(cat.id)}
+              onDelete={() => deleteCategory(cat.id, cat.name)}
             />
           );
         })}
@@ -168,7 +194,7 @@ export default function MenuPage() {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-20 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />
+            <div key={i} className="h-[72px] bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />
           ))}
         </div>
       ) : filteredItems.length > 0 ? (
@@ -179,9 +205,9 @@ export default function MenuPage() {
                 key={item.id}
                 item={item}
                 categoryName={categories.find((c) => c.id === item.menu_category_id)?.name}
-                onToggle={() => toggleItem(item.id, item.is_available)}
-                onEdit={() => { setEditingItem(item); setShowItemForm(true); }}
-                onDelete={() => deleteItem(item.id)}
+                onToggle={(e) => toggleItem(e, item.id, item.is_available)}
+                onClick={() => router.push(`/restaurante/menu/${item.id}`)}
+                onDelete={(e) => deleteItem(e, item.id, item.name)}
               />
             ))}
           </AnimatePresence>
@@ -191,7 +217,7 @@ export default function MenuPage() {
           <p className="text-4xl mb-3">🍽️</p>
           <p className="text-sm">No hay platos en esta categoría</p>
           <button
-            onClick={() => { setEditingItem(null); setShowItemForm(true); }}
+            onClick={() => setShowItemForm(true)}
             className="mt-3 text-sm text-[#FF6B35] font-semibold hover:underline"
           >
             Agregar primer plato
@@ -199,13 +225,18 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Item form modal */}
+      {/* Item form modal — ONLY for creating NEW items */}
       <ItemFormModal
         isOpen={showItemForm}
-        item={editingItem}
         categories={categories}
-        onClose={() => { setShowItemForm(false); setEditingItem(null); }}
-        onSaved={fetchMenu}
+        onClose={() => setShowItemForm(false)}
+        onSaved={(newItemId) => {
+          fetchMenu();
+          // Navigate to the new item's edit page
+          if (newItemId) {
+            router.push(`/restaurante/menu/${newItemId}`);
+          }
+        }}
       />
 
       {/* Category form modal */}
@@ -215,24 +246,36 @@ export default function MenuPage() {
         onClose={() => { setShowCategoryForm(false); setEditingCategory(null); }}
         onSaved={fetchMenu}
       />
+
+      {/* Confirm modal */}
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        onConfirm={confirmModal.onConfirm}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }
 
 // ─── Menu Item Row ──────────────────────────────────────────
+// Entire row is clickable → navigates to /restaurante/menu/{id}
+// Toggle and delete have stopPropagation to avoid navigation
 
 function MenuItemRow({
   item,
   categoryName,
   onToggle,
-  onEdit,
+  onClick,
   onDelete,
 }: {
   item: MenuItem;
   categoryName?: string;
-  onToggle: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onToggle: (e: React.MouseEvent) => void;
+  onClick: () => void;
+  onDelete: (e: React.MouseEvent) => void;
 }) {
   return (
     <motion.div
@@ -240,35 +283,36 @@ function MenuItemRow({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, height: 0 }}
-      className={`rounded-xl border transition-all ${
+      onClick={onClick}
+      className={`rounded-xl border transition-all cursor-pointer active:scale-[0.99] ${
         item.is_available
-          ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800'
+          ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:border-orange-200 dark:hover:border-orange-900/50'
           : 'bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-800 opacity-60'
       }`}
     >
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-2.5 px-3 py-3">
         {/* Toggle */}
         <button
           onClick={onToggle}
-          className={`flex-shrink-0 w-10 h-6 rounded-full relative transition-colors ${
+          className={`flex-shrink-0 w-9 h-5 rounded-full relative transition-colors ${
             item.is_available ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
           }`}
         >
-          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-            item.is_available ? 'left-[18px]' : 'left-0.5'
+          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+            item.is_available ? 'left-[17px]' : 'left-0.5'
           }`} />
         </button>
 
-        {/* Image thumbnail (if exists) */}
+        {/* Image thumbnail */}
         {item.image_url && (
           <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
             <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
           </div>
         )}
 
-        {/* Info — takes remaining space */}
+        {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
               {item.name}
             </span>
@@ -280,29 +324,20 @@ function MenuItemRow({
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
             {categoryName || 'Sin categoría'}
-            {item.description && ` · ${item.description}`}
           </p>
         </div>
 
-        {/* Price + Actions — stacked on right */}
-        <div className="flex-shrink-0 flex flex-col items-end gap-1">
+        {/* Price + Delete */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">
             {formatPrice(item.base_price_cents)}
           </span>
-          <div className="flex gap-0.5">
-            <button
-              onClick={onEdit}
-              className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <span className="text-xs">✏️</span>
-            </button>
-            <button
-              onClick={onDelete}
-              className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/20 text-gray-400 hover:text-red-500 transition-colors"
-            >
-              <span className="text-xs">🗑️</span>
-            </button>
-          </div>
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          >
+            <span className="text-xs">🗑️</span>
+          </button>
         </div>
       </div>
     </motion.div>
@@ -350,7 +385,6 @@ function CategoryTab({
         )}
       </button>
 
-      {/* Context menu */}
       {showMenu && onEdit && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
@@ -376,20 +410,18 @@ function CategoryTab({
   );
 }
 
-// ─── Item Form Modal ────────────────────────────────────────
+// ─── Item Form Modal (CREATE ONLY) ─────────────────────────
 
 function ItemFormModal({
   isOpen,
-  item,
   categories,
   onClose,
   onSaved,
 }: {
   isOpen: boolean;
-  item: MenuItem | null;
   categories: MenuCategory[];
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (newItemId?: string) => void;
 }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
@@ -401,39 +433,35 @@ function ItemFormModal({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
-    if (item) {
-      setName(item.name);
-      setDesc(item.description || '');
-      setPrice(String(item.base_price_cents));
-      setCategoryId(item.menu_category_id || '');
-      setImageUrl(item.image_url || '');
-      setImagePreview(item.image_url || null);
-    } else {
+    if (isOpen) {
       setName(''); setDesc(''); setPrice(''); setCategoryId('');
       setImageUrl(''); setImagePreview(null);
     }
-  }, [item, isOpen]);
+  }, [isOpen]);
 
   const handleSave = async () => {
     if (!name.trim() || !price) return;
     setIsSaving(true);
 
     try {
-      const url = '/api/restaurant/menu/items';
-      const method = item ? 'PATCH' : 'POST';
-      const body = item
-        ? { id: item.id, name, description: desc, base_price_cents: parseInt(price), menu_category_id: categoryId || null, image_url: imageUrl || null }
-        : { name, description: desc, base_price_cents: parseInt(price), menu_category_id: categoryId || null, image_url: imageUrl || null };
+      const body = {
+        name,
+        description: desc,
+        base_price_cents: parseInt(price),
+        menu_category_id: categoryId || null,
+        image_url: imageUrl || null,
+      };
 
-      const res = await fetch(url, {
-        method,
+      const res = await fetch('/api/restaurant/menu/items', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
       if (res.ok) {
-        onSaved();
+        const data = await res.json();
         onClose();
+        onSaved(data.item?.id);
       } else {
         const err = await res.json();
         alert(err.error || 'Error al guardar');
@@ -450,7 +478,7 @@ function ItemFormModal({
   return (
     <ModalWrapper onClose={onClose}>
       <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">
-        {item ? 'Editar plato' : 'Nuevo plato'}
+        Nuevo plato
       </h3>
 
       <div className="space-y-3">
@@ -460,6 +488,7 @@ function ItemFormModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Pollo a la brasa"
+            autoFocus
             className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#FF6B35] outline-none"
           />
         </div>
@@ -583,7 +612,7 @@ function ItemFormModal({
           disabled={!name.trim() || !price || isSaving}
           className="flex-1 py-2.5 rounded-xl bg-[#FF6B35] text-sm font-semibold text-white disabled:opacity-50"
         >
-          {isSaving ? 'Guardando...' : 'Guardar'}
+          {isSaving ? 'Creando...' : 'Crear plato'}
         </button>
       </div>
     </ModalWrapper>

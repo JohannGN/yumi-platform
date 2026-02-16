@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatPrice } from '@/lib/utils/rounding';
+import { createClient } from '@/lib/supabase/client';
 import {
   colors,
   paymentMethodLabels,
@@ -252,79 +253,107 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
   useEffect(() => {
     if (!data?.order) return;
 
-    let channel: ReturnType<typeof import('@supabase/supabase-js').createClient> | null = null;
+    const supabase = createClient();
 
-    const setupRealtime = async () => {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    const channel = supabase
+      .channel(`order-track-${data.order.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${data.order.id}`,
+        },
+        () => {
+          // Refetch all order data on any update
+          fetchOrder();
+        }
       );
 
-      // Listen for order status changes
-      const orderChannel = supabase
-        .channel(`order-track-${data.order.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'orders',
-            filter: `id=eq.${data.order.id}`,
-          },
-          () => {
-            // Refetch all order data on any update
-            fetchOrder();
+    // Listen for rider location updates if rider assigned
+    if (data.rider?.id) {
+      channel.on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'riders',
+          filter: `id=eq.${data.rider.id}`,
+        },
+        (payload) => {
+          const newData = payload.new as Record<string, unknown>;
+          if (newData.current_lat && newData.current_lng) {
+            updateRiderMarker(
+              Number(newData.current_lat),
+              Number(newData.current_lng)
+            );
+            setData((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                rider: prev.rider
+                  ? {
+                      ...prev.rider,
+                      current_lat: Number(newData.current_lat),
+                      current_lng: Number(newData.current_lng),
+                    }
+                  : prev.rider,
+              };
+            });
           }
-        );
+        }
+      );
+    }
 
-      // Listen for rider location updates if rider assigned
-      if (data.rider?.id) {
-        orderChannel.on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'riders',
-            filter: `id=eq.${data.rider.id}`,
-          },
-          (payload) => {
-            const newData = payload.new as Record<string, unknown>;
-            if (newData.current_lat && newData.current_lng) {
-              updateRiderMarker(
-                Number(newData.current_lat),
-                Number(newData.current_lng)
-              );
-              setData((prev) => {
-                if (!prev) return prev;
-                return {
-                  ...prev,
-                  rider: prev.rider
-                    ? {
-                        ...prev.rider,
-                        current_lat: Number(newData.current_lat),
-                        current_lng: Number(newData.current_lng),
-                      }
-                    : prev.rider,
-                };
-              });
-            }
-          }
-        );
-      }
-
-      orderChannel.subscribe();
-      channel = orderChannel as any;
-    };
-
-    setupRealtime();
+    channel.subscribe();
 
     return () => {
-      if (channel && typeof (channel as any).unsubscribe === 'function') {
-        (channel as any).unsubscribe();
-      }
+      supabase.removeChannel(channel);
     };
   }, [data?.order?.id, data?.rider?.id, fetchOrder]);
+
+  // ─── Polling fallback (pauses when tab hidden) ────────
+  // Supabase Realtime requires RLS SELECT for anon.
+  // Polling ensures updates even if Realtime is blocked.
+
+  useEffect(() => {
+    if (!data?.order) return;
+
+    const isTerminalStatus = ['delivered', 'cancelled', 'rejected'].includes(data.order.status);
+    if (isTerminalStatus) return; // No need to poll terminal orders
+
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (intervalId) return;
+      intervalId = setInterval(fetchOrder, 15_000); // Every 15s
+    };
+
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchOrder(); // Immediate fetch when tab becomes visible
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [data?.order?.id, data?.order?.status, fetchOrder]);
 
   // ─── Google Maps ───────────────────────────────────────
 

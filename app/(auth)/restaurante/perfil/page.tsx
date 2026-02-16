@@ -39,7 +39,7 @@ export default function PerfilPage() {
   const [whatsapp, setWhatsapp] = useState('');
   const [themeColor, setThemeColor] = useState('orange');
   const [prepMinutes, setPrepMinutes] = useState(30);
-  const [minOrderCents, setMinOrderCents] = useState(0);
+  const [minOrderSoles, setMinOrderSoles] = useState('0.00');
   const [hours, setHours] = useState<OpeningHours | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -61,7 +61,7 @@ export default function PerfilPage() {
     setSameAsPhone(restaurant.phone === restaurant.whatsapp && !!restaurant.phone);
     setThemeColor(restaurant.theme_color || 'orange');
     setPrepMinutes(restaurant.estimated_prep_minutes || 30);
-    setMinOrderCents(restaurant.min_order_cents || 0);
+    setMinOrderSoles(((restaurant.min_order_cents || 0) / 100).toFixed(2));
     setHours(restaurant.opening_hours);
     setLogoUrl(restaurant.logo_url || null);
     setLogoPreview(restaurant.logo_url || null);
@@ -155,7 +155,7 @@ export default function PerfilPage() {
           whatsapp: sameAsPhone ? (phone || null) : (whatsapp || null),
           theme_color: themeColor,
           estimated_prep_minutes: prepMinutes,
-          min_order_cents: minOrderCents,
+          min_order_cents: Math.max(0, Math.round(parseFloat(minOrderSoles || '0') * 100)),
           opening_hours: hours,
         }),
       });
@@ -372,20 +372,23 @@ export default function PerfilPage() {
               className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none"
             />
           </div>
-          <div>
+<div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               Pedido mínimo (S/)
             </label>
-            <input
-              type="number"
-              min={0}
-              step={100}
-              value={minOrderCents}
-              onChange={(e) => setMinOrderCents(parseInt(e.target.value) || 0)}
-              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none"
-            />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">S/</span>
+              <input
+                type="number"
+                min={0}
+                step={0.10}
+                value={minOrderSoles}
+                onChange={(e) => setMinOrderSoles(e.target.value)}
+                className="w-full px-3 py-2.5 pl-8 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white tabular-nums text-right focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none"
+              />
+            </div>
             <p className="text-[10px] text-gray-400 mt-0.5">
-              En céntimos. Ej: 1000 = {formatPrice(1000)}
+              0 = sin mínimo
             </p>
           </div>
         </div>
