@@ -33,17 +33,17 @@ export default function RiderProfilePage() {
   // Shift timer
   const [elapsed, setElapsed] = useState('');
   useEffect(() => {
-    if (!rider?.shift_started_at || rider.shift_ended_at) return;
+    if (!rider?.is_online || !rider?.shift_started_at) return;
     const update = () => {
       const diff = Date.now() - new Date(rider.shift_started_at!).getTime();
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
-      setElapsed(`${h}h ${m}m`);
+      setElapsed(`${h}h ${m.toString().padStart(2, '0')}min`);
     };
     update();
     const interval = setInterval(update, 60000);
     return () => clearInterval(interval);
-  }, [rider?.shift_started_at, rider?.shift_ended_at]);
+  }, [rider?.is_online, rider?.shift_started_at]);
 
   const handleShiftAction = async (action: 'start' | 'end') => {
     setIsShiftLoading(true);
@@ -54,8 +54,8 @@ export default function RiderProfilePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         setShiftError(data.error || 'Error');
         return;
       }
@@ -78,7 +78,7 @@ export default function RiderProfilePage() {
     return <ProfileSkeleton />;
   }
 
-  const isShiftActive = !!rider.shift_started_at && !rider.shift_ended_at;
+  const isOnShift = rider.is_online;
   const vehicleLabel = vehicleTypeLabels[rider.vehicle_type] || rider.vehicle_type;
 
   return (
@@ -140,59 +140,87 @@ export default function RiderProfilePage() {
         </div>
       </motion.div>
 
-      {/* Shift management */}
+      {/* === TURNO — CONTROL ÚNICO === */}
       <motion.div
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-5"
+        className={`rounded-2xl border-2 p-5 ${
+          isOnShift
+            ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+            : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+        }`}
       >
-        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">
-          Turno
-        </h3>
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`w-3 h-3 rounded-full ${isOnShift ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+          <h3 className={`text-sm font-bold ${
+            isOnShift
+              ? 'text-green-800 dark:text-green-300'
+              : 'text-gray-900 dark:text-white'
+          }`}>
+            {isOnShift ? 'Turno activo' : 'Sin turno activo'}
+          </h3>
+        </div>
 
-        {isShiftActive ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
+        {isOnShift ? (
+          <div className="space-y-4">
+            {/* Shift info */}
+            <div className="flex items-center justify-between rounded-xl bg-white/60 dark:bg-gray-800/60 px-4 py-3">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Inicio</p>
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {formatTime(rider.shift_started_at!)}
+                <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Hora de inicio
+                </p>
+                <p className="text-sm font-bold text-gray-900 dark:text-white">
+                  {rider.shift_started_at ? formatTime(rider.shift_started_at) : '—'}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Tiempo activo</p>
-                <p className="text-sm font-bold tabular-nums" style={{ color: colors.semantic.success }}>
-                  {elapsed}
+                <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Tiempo activo
+                </p>
+                <p className="text-sm font-black tabular-nums" style={{ color: colors.semantic.success }}>
+                  ⏱️ {elapsed || '0h 00min'}
                 </p>
               </div>
             </div>
 
+            {/* Status note */}
+            <p className="text-xs text-green-700 dark:text-green-400 text-center">
+              Estás en línea recibiendo pedidos
+            </p>
+
+            {/* End shift button */}
             <button
               onClick={() => {
                 if (rider.current_order_id) {
-                  setShiftError('Completa tu entrega antes de cerrar turno');
+                  setShiftError('Completa tu entrega antes de finalizar turno');
                   return;
                 }
                 setShowEndShiftModal(true);
               }}
               disabled={isShiftLoading}
-              className="w-full py-3 rounded-xl border-2 border-red-200 dark:border-red-800 text-sm font-bold text-red-600 dark:text-red-400 active:scale-[0.98] transition-transform disabled:opacity-50"
+              className="w-full py-3.5 rounded-xl border-2 border-red-200 dark:border-red-800 bg-white dark:bg-gray-800 text-sm font-bold text-red-600 dark:text-red-400 active:scale-[0.98] transition-transform disabled:opacity-50"
             >
-              {isShiftLoading ? 'Cerrando...' : 'Finalizar turno'}
+              {isShiftLoading ? 'Finalizando...' : '⏹ Finalizar turno'}
             </button>
           </div>
         ) : (
           <div className="space-y-3">
+            {/* Last shift info */}
             {rider.shift_ended_at && (
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                Último turno cerrado: {formatTime(rider.shift_ended_at)}
+              <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+                Último turno finalizado: {formatTime(rider.shift_ended_at)}
               </p>
             )}
+
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center leading-relaxed">
+              Al iniciar turno te conectarás y empezarás a recibir pedidos
+            </p>
+
             <button
               onClick={() => handleShiftAction('start')}
               disabled={isShiftLoading}
-              className="w-full py-3 rounded-xl text-sm font-bold text-white active:scale-[0.98] transition-transform disabled:opacity-50"
+              className="w-full py-3.5 rounded-xl text-sm font-bold text-white active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-green-500/20"
               style={{ backgroundColor: colors.semantic.success }}
             >
               {isShiftLoading ? 'Iniciando...' : '▶️ Iniciar turno'}
@@ -200,8 +228,15 @@ export default function RiderProfilePage() {
           </div>
         )}
 
+        {/* Error */}
         {shiftError && (
-          <p className="text-xs text-red-500 font-medium mt-2">{shiftError}</p>
+          <motion.p
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-xs text-red-500 font-medium mt-3 text-center"
+          >
+            {shiftError}
+          </motion.p>
         )}
       </motion.div>
 
@@ -278,11 +313,6 @@ export default function RiderProfilePage() {
               <p className="text-[10px] font-medium text-orange-500 dark:text-orange-400">Mes</p>
             </div>
           </div>
-          {rider.pay_type === 'fixed_salary' && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-              Tu pago es gestionado por YUMI
-            </p>
-          )}
         </motion.div>
       )}
 
@@ -302,7 +332,13 @@ export default function RiderProfilePage() {
         transition={{ delay: 0.25 }}
       >
         <button
-          onClick={() => setShowLogoutModal(true)}
+           onClick={() => {
+            if (rider.current_order_id) {
+              setShiftError('Completa tu entrega antes de cerrar sesión');
+              return;
+            }
+            setShowLogoutModal(true);
+          }}
           className="w-full py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-sm font-bold text-gray-500 dark:text-gray-400 active:scale-[0.98] transition-transform"
         >
           Cerrar sesión
@@ -312,9 +348,10 @@ export default function RiderProfilePage() {
       {/* End shift modal */}
       {showEndShiftModal && (
         <ConfirmModal
+          isOpen={true}
           title="Finalizar turno"
-          message="¿Seguro que quieres cerrar tu turno? Te desconectarás y dejarás de recibir pedidos."
-          confirmLabel="Finalizar"
+          message="¿Seguro que quieres finalizar? Te desconectarás y dejarás de recibir pedidos."
+          confirmLabel="Finalizar turno"
           variant="danger"
           onConfirm={() => handleShiftAction('end')}
           onCancel={() => setShowEndShiftModal(false)}
@@ -324,6 +361,7 @@ export default function RiderProfilePage() {
       {/* Logout modal */}
       {showLogoutModal && (
         <ConfirmModal
+          isOpen={true}
           title="Cerrar sesión"
           message="¿Seguro que quieres salir? Deberás volver a iniciar sesión."
           confirmLabel="Salir"

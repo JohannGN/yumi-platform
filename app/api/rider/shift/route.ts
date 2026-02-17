@@ -23,17 +23,13 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { action } = body as { action: 'start' | 'end' };
 
-    if (!action || !['start', 'end'].includes(action)) {
-      return NextResponse.json(
-        { error: 'Acción inválida. Usa "start" o "end"' },
-        { status: 400 }
-      );
+    if (!['start', 'end'].includes(action)) {
+      return NextResponse.json({ error: 'Acción inválida' }, { status: 400 });
     }
 
-    // Get rider
     const { data: rider, error: riderError } = await supabase
       .from('riders')
-      .select('id, current_order_id, shift_started_at')
+      .select('id, is_online, current_order_id, shift_started_at, shift_ended_at')
       .eq('user_id', user.id)
       .single();
 
@@ -42,53 +38,53 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (action === 'start') {
-      const { error } = await supabase
+      if (rider.is_online) {
+        return NextResponse.json({ error: 'Ya tienes un turno activo' }, { status: 400 });
+      }
+
+      const { error: updateError } = await supabase
         .from('riders')
         .update({
-          shift_started_at: new Date().toISOString(),
-          shift_ended_at: null,
           is_online: true,
           is_available: true,
+          shift_started_at: new Date().toISOString(),
+          shift_ended_at: null,
         })
         .eq('id', rider.id);
 
-      if (error) {
-        console.error('Start shift error:', error);
+      if (updateError) {
         return NextResponse.json({ error: 'Error al iniciar turno' }, { status: 500 });
       }
 
-      return NextResponse.json({
-        message: 'Turno iniciado',
-        shift_started_at: new Date().toISOString(),
-      });
+      return NextResponse.json({ success: true, action: 'started' });
     }
 
     // action === 'end'
+    if (!rider.is_online) {
+      return NextResponse.json({ error: 'No tienes un turno activo' }, { status: 400 });
+    }
+
     if (rider.current_order_id) {
       return NextResponse.json(
-        { error: 'Completa tu entrega antes de cerrar turno' },
+        { error: 'Completa tu entrega actual antes de finalizar turno' },
         { status: 400 }
       );
     }
 
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from('riders')
       .update({
-        shift_ended_at: new Date().toISOString(),
         is_online: false,
         is_available: false,
+        shift_ended_at: new Date().toISOString(),
       })
       .eq('id', rider.id);
 
-    if (error) {
-      console.error('End shift error:', error);
-      return NextResponse.json({ error: 'Error al cerrar turno' }, { status: 500 });
+    if (updateError) {
+      return NextResponse.json({ error: 'Error al finalizar turno' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      message: 'Turno finalizado',
-      shift_ended_at: new Date().toISOString(),
-    });
+    return NextResponse.json({ success: true, action: 'ended' });
   } catch (err) {
     console.error('PATCH /api/rider/shift error:', err);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });

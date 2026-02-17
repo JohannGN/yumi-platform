@@ -1,87 +1,78 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useRider } from './rider-context';
 import { WhatsAppStatusRider } from './whatsapp-status-rider';
-import { formatCurrency } from '@/config/tokens';
+import { formatCurrency, colors } from '@/config/tokens';
+import { motion } from 'framer-motion';
 import type { RiderStats } from '@/types/rider-panel';
+import { useEffect, useState } from 'react';
 
 export function WaitingState() {
+  const router = useRouter();
   const { rider } = useRider();
   const [stats, setStats] = useState<RiderStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const isOnShift = rider?.is_online ?? false;
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const res = await fetch('/api/rider/stats');
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        }
-      } catch {
-        // Silently fail
-      } finally {
-        setIsLoading(false);
-      }
+        if (res.ok) setStats(await res.json());
+      } catch { /* silent */ }
     };
     fetchStats();
   }, []);
 
-  if (!rider) return null;
-
-  const isOnline = rider.is_online;
-
   return (
-    <div className="flex flex-col gap-4 p-4">
-      {/* Status hero */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-6"
-      >
-        {/* Subtle gradient background */}
-        <div
-          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
-          style={{
-            background: isOnline
-              ? 'radial-gradient(circle at 50% 30%, #22C55E 0%, transparent 70%)'
-              : 'radial-gradient(circle at 50% 30%, #9CA3AF 0%, transparent 70%)',
-          }}
-        />
-
-        <div className="relative flex flex-col items-center text-center gap-3">
-          {/* Animated icon */}
-          <div className="relative">
+    <div className="flex flex-col gap-4 p-4 pt-6">
+      {/* Hero */}
+      <div className="flex flex-col items-center text-center py-6">
+        <motion.div
+          animate={isOnShift ? { y: [0, -8, 0] } : {}}
+          transition={isOnShift ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : {}}
+          className="relative"
+        >
+          <span className="text-6xl">
+            {isOnShift ? '🏍️' : '😴'}
+          </span>
+          {isOnShift && (
             <motion.div
-              className="text-5xl"
-              animate={isOnline ? { y: [0, -4, 0] } : {}}
+              className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-12 h-2 rounded-full bg-gray-200 dark:bg-gray-700"
+              animate={{ scaleX: [1, 0.7, 1], opacity: [0.5, 0.2, 0.5] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              {isOnline ? '🏍️' : '😴'}
-            </motion.div>
-            {isOnline && (
-              <motion.div
-                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-gray-200 dark:bg-gray-700"
-                animate={{ scaleX: [0.8, 1, 0.8], opacity: [0.3, 0.6, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-              />
-            )}
-          </div>
+            />
+          )}
+        </motion.div>
 
-          <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-              {isOnline ? 'Esperando pedidos...' : 'Estás desconectado'}
+        {isOnShift ? (
+          <>
+            <h2 className="text-lg font-black text-gray-900 dark:text-white mt-4">
+              Esperando pedidos...
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              {isOnline
-                ? 'Te notificaremos cuando tengas un pedido'
-                : 'Conéctate para recibir pedidos'}
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Te notificaremos cuando haya un pedido
             </p>
-          </div>
-        </div>
-      </motion.div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-lg font-black text-gray-900 dark:text-white mt-4">
+              Fuera de turno
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Inicia tu turno para recibir pedidos
+            </p>
+            <button
+              onClick={() => router.push('/rider/perfil')}
+              className="mt-4 px-6 py-3 rounded-xl text-sm font-bold text-white active:scale-[0.97] transition-transform shadow-lg shadow-green-500/20"
+              style={{ backgroundColor: colors.semantic.success }}
+            >
+              ▶️ Ir a iniciar turno
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-3">
@@ -89,82 +80,52 @@ export function WaitingState() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-4"
+          className="rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-4 text-center"
         >
-          {isLoading ? (
-            <div className="space-y-2">
-              <div className="h-8 w-12 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
-              <div className="h-3 w-20 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
-            </div>
-          ) : (
-            <>
-              <p className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">
-                {stats?.deliveries_today ?? 0}
-              </p>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-0.5">
-                Entregas hoy
-              </p>
-            </>
-          )}
+          <p className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">
+            {stats?.deliveries_today ?? 0}
+          </p>
+          <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-0.5">
+            Entregas hoy
+          </p>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-4"
+          className="rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-4 text-center"
         >
-          {isLoading ? (
-            <div className="space-y-2">
-              <div className="h-8 w-16 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
-              <div className="h-3 w-12 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
-            </div>
-          ) : (
-            <>
-              <div className="flex items-baseline gap-1">
-                <p className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">
-                  {stats?.avg_rating ? stats.avg_rating.toFixed(1) : '—'}
-                </p>
-                {stats?.avg_rating ? (
-                  <span className="text-sm">⭐</span>
-                ) : null}
-              </div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-0.5">
-                Rating{stats?.total_ratings ? ` (${stats.total_ratings})` : ''}
-              </p>
-            </>
-          )}
+          <div className="flex items-center justify-center gap-1">
+            <span className="text-lg">⭐</span>
+            <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">
+              {stats?.avg_rating ? stats.avg_rating.toFixed(1) : '—'}
+            </span>
+          </div>
+          <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-0.5">
+            Calificación
+          </p>
         </motion.div>
-
-        {/* Earnings card - only if show_earnings */}
-        {rider.show_earnings && stats?.earnings_today_cents !== undefined && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="col-span-2 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border border-orange-100 dark:border-orange-900/40 p-4"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-orange-600 dark:text-orange-400">
-                  Ganancia hoy
-                </p>
-                <p className="text-xl font-black text-orange-700 dark:text-orange-300 tabular-nums mt-0.5">
-                  {formatCurrency(stats.earnings_today_cents)}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Esta semana
-                </p>
-                <p className="text-sm font-bold text-gray-700 dark:text-gray-300 tabular-nums">
-                  {formatCurrency(stats.earnings_week_cents ?? 0)}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
       </div>
+
+      {/* Earnings (conditional) */}
+      {rider?.show_earnings && stats?.earnings_today_cents !== undefined && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border border-orange-100 dark:border-orange-900/40 p-4"
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-orange-800 dark:text-orange-300">
+              Ganancias hoy
+            </p>
+            <p className="text-lg font-black text-orange-700 dark:text-orange-300 tabular-nums">
+              {formatCurrency(stats.earnings_today_cents)}
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* WhatsApp status */}
       <motion.div
@@ -172,7 +133,7 @@ export function WaitingState() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25 }}
       >
-        <WhatsAppStatusRider lastMessageAt={rider.whatsapp_last_message_at} />
+        <WhatsAppStatusRider lastMessageAt={rider?.whatsapp_last_message_at ?? null} />
       </motion.div>
     </div>
   );

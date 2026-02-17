@@ -1,15 +1,16 @@
 'use client';
 
-import { formatCurrency, formatTime, formatOrderCode, paymentMethodLabels, colors } from '@/config/tokens';
+import { formatCurrency, formatTime, formatOrderCode, paymentMethodLabels, colors, formatDateShort } from '@/config/tokens';
 import { motion } from 'framer-motion';
 import type { RiderHistoryOrder } from '@/types/rider-panel';
 
 interface DeliveryHistoryListProps {
   orders: RiderHistoryOrder[];
   showEarnings: boolean;
+  onSelectOrder: (orderId: string) => void;
 }
 
-export function DeliveryHistoryList({ orders, showEarnings }: DeliveryHistoryListProps) {
+export function DeliveryHistoryList({ orders, showEarnings, onSelectOrder }: DeliveryHistoryListProps) {
   if (orders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -28,12 +29,13 @@ export function DeliveryHistoryList({ orders, showEarnings }: DeliveryHistoryLis
         const methodLabel = paymentMethodLabels[method] || method;
 
         return (
-          <motion.div
+          <motion.button
             key={order.id}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.03 }}
-            className="rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-3.5"
+            onClick={() => onSelectOrder(order.id)}
+            className="w-full text-left rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-3.5 active:scale-[0.98] transition-transform"
           >
             <div className="flex items-start justify-between gap-2">
               {/* Left: restaurant + code + time */}
@@ -46,7 +48,7 @@ export function DeliveryHistoryList({ orders, showEarnings }: DeliveryHistoryLis
                     {formatOrderCode(order.code)}
                   </span>
                   <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                    {formatTime(order.delivered_at)}
+                    {formatDateShort(order.delivered_at)} · {formatTime(order.delivered_at)}
                   </span>
                 </div>
 
@@ -63,19 +65,24 @@ export function DeliveryHistoryList({ orders, showEarnings }: DeliveryHistoryLis
                 </div>
               </div>
 
-              {/* Right: total + earnings */}
-              <div className="text-right flex-shrink-0">
-                <p className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">
-                  {formatCurrency(order.total_cents)}
-                </p>
-                {showEarnings && order.earnings_cents !== undefined && (
-                  <p className="text-[11px] font-semibold tabular-nums mt-0.5" style={{ color: colors.semantic.success }}>
-                    +{formatCurrency(order.earnings_cents)}
+              {/* Right: total + earnings + chevron */}
+              <div className="text-right flex-shrink-0 flex items-center gap-2">
+                <div>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">
+                    {formatCurrency(order.total_cents)}
                   </p>
-                )}
+                  {showEarnings && order.earnings_cents !== undefined && (
+                    <p className="text-[11px] font-semibold tabular-nums mt-0.5" style={{ color: colors.semantic.success }}>
+                      +{formatCurrency(order.earnings_cents)}
+                    </p>
+                  )}
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 dark:text-gray-600 flex-shrink-0">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </div>
             </div>
-          </motion.div>
+          </motion.button>
         );
       })}
     </div>

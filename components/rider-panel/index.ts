@@ -17,3 +17,4 @@ export { CashCalculator } from './cash-calculator';
 export { QrDisplay } from './qr-display';
 export { PosPhoto } from './pos-photo';
 export { DeliveryHistoryList } from './delivery-history-list';
+export { OrderDetailRider } from './order-detail-rider';
