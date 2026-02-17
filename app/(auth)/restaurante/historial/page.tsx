@@ -8,9 +8,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { formatPrice } from '@/lib/utils/rounding';
-import { orderStatusLabels, paymentMethodLabels } from '@/config/tokens';
-import { OrderDetailSheet } from '@/components/restaurant-panel/order-detail-sheet';
+import { orderStatusLabels } from '@/config/tokens';
+import OrderDetailSheet from '@/components/restaurant-panel/order-detail-sheet';
 import type { PanelOrder } from '@/types/restaurant-panel';
+import type { SanitizedOrder } from '@/components/restaurant-panel/order-card-panel';
 
 const STATUS_FILTERS = [
   { value: '', label: 'Todos' },
@@ -129,9 +130,10 @@ export default function HistorialPage() {
       )}
 
       {/* Detail sheet */}
-      <OrderDetailSheet
-        order={detailOrder}
-        onClose={() => setDetailOrder(null)}
+    <OrderDetailSheet
+      order={detailOrder as unknown as SanitizedOrder | null}
+      isOpen={!!detailOrder}
+      onClose={() => setDetailOrder(null)}
       />
     </div>
   );
@@ -142,7 +144,6 @@ export default function HistorialPage() {
 function HistoryRow({ order, onClick }: { order: PanelOrder; onClick: () => void }) {
   const codeFormatted = `${order.code.slice(0, 3)}-${order.code.slice(3)}`;
   const statusLabel = orderStatusLabels[order.status] || order.status;
-  const payLabel = paymentMethodLabels[order.payment_method] || order.payment_method;
 
   const statusColors: Record<string, string> = {
     delivered: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
@@ -179,12 +180,9 @@ function HistoryRow({ order, onClick }: { order: PanelOrder; onClick: () => void
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-          {order.customer_name} · {payLabel} · {date}
-        </p>
       </div>
       <span className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">
-        {formatPrice(order.total_cents)}
+        {formatPrice(order.subtotal_cents)}
       </span>
     </motion.div>
   );

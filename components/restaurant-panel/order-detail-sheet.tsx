@@ -1,55 +1,111 @@
 'use client';
 
 // ============================================================
-// Order Detail Sheet — Full order view in a slide-over
-// Chat 5 — Fragment 3/7
+// OrderDetailSheet — Detalle de pedido para panel restaurante
+// SEGURIDAD: NO muestra datos del cliente
+// Solo: código, items detallados con modifiers, subtotal, pago, rider, timeline
 // ============================================================
 
-import { useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { formatPrice } from '@/lib/utils/rounding';
 import {
+  formatCurrency,
+  formatDate,
   orderStatusLabels,
-  paymentMethodLabels,
+  rejectionReasonLabels,
 } from '@/config/tokens';
-import type { PanelOrder, OrderItem } from '@/types/restaurant-panel';
+import { colors } from '@/config/tokens';
+import type { SanitizedOrder } from './order-card-panel';
 
-interface OrderDetailSheetProps {
-  order: PanelOrder | null;
-  onClose: () => void;
+interface OrderItem {
+  item_id: string;
+  variant_id?: string | null;
+  name: string;
+  variant_name?: string | null;
+  quantity: number;
+  unit_price_cents: number;
+  line_total_cents?: number;
+  total_cents?: number;
+  weight_kg?: number | null;
+  modifiers?: Array<{
+    group_name: string;
+    selections: Array<{
+      name: string;
+      price_cents: number;
+    }>;
+  }>;
 }
 
-export function OrderDetailSheet({ order, onClose }: OrderDetailSheetProps) {
-  const backdropRef = useRef<HTMLDivElement>(null);
+interface OrderDetailSheetProps {
+  order: SanitizedOrder | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onAccept?: (orderId: string) => void;
+  onReject?: (orderId: string) => void;
+  onMarkReady?: (orderId: string) => void;
+  onMarkPreparing?: (orderId: string) => void;
+}
+
+function formatOrderCode(code: string): string {
+  if (code.length === 6) {
+    return `${code.slice(0, 3)}-${code.slice(3)}`;
+  }
+  return code;
+}
+
+export default function OrderDetailSheet({
+  order,
+  isOpen,
+  onClose,
+  onAccept,
+  onReject,
+  onMarkReady,
+  onMarkPreparing,
+}: OrderDetailSheetProps) {
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!order) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleEsc);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', handleEsc);
-      document.body.style.overflow = '';
-    };
-  }, [order, onClose]);
+    setMounted(true);
+  }, []);
 
-  if (typeof window === 'undefined') return null;
+  if (!mounted || !order) return null;
 
-  return createPortal(
+  const items = (typeof order.items === 'string' ? JSON.parse(order.items) : order.items) as OrderItem[];
+  const statusColor = colors.orderStatus[order.status as keyof typeof colors.orderStatus] || '#9CA3AF';
+  const statusLabel = orderStatusLabels[order.status] || order.status;
+
+  // Timeline events
+  const timeline: Array<{ label: string; time: string | null; status: string }> = [
+    { label: 'Pedido creado', time: order.created_at, status: 'created' },
+    { label: 'Cliente confirmó', time: order.confirmed_at || null, status: 'confirmed_client' },
+    { label: 'Restaurante aceptó', time: order.restaurant_confirmed_at || null, status: 'confirmed' },
+    { label: 'Listo para recoger', time: order.ready_at || null, status: 'ready' },
+    { label: 'Rider recogió', time: order.picked_up_at || null, status: 'picked_up' },
+    { label: 'Entregado', time: order.delivered_at || null, status: 'delivered' },
+  ];
+
+if (order.status === 'rejected') {
+    timeline.push({ label: 'Rechazado por restaurante', time: order.updated_at, status: 'rejected' });
+  }
+  if (order.cancelled_at) {
+    timeline.push({ label: 'Cancelado', time: order.cancelled_at, status: 'cancelled' });
+  }
+
+  const showAcceptReject = order.status === 'pending_confirmation';
+  const showPreparing = order.status === 'confirmed';
+  const showMarkReady = order.status === 'confirmed' || order.status === 'preparing';
+
+  return (
     <AnimatePresence>
-      {order && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+      {isOpen && (
+        <>
           {/* Backdrop */}
           <motion.div
-            ref={backdropRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-40"
             onClick={onClose}
-            className="absolute inset-0 bg-black/50"
           />
 
           {/* Sheet */}
@@ -58,272 +114,231 @@ export function OrderDetailSheet({ order, onClose }: OrderDetailSheetProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-md bg-white dark:bg-gray-900 h-full overflow-y-auto shadow-2xl"
+            className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white dark:bg-gray-900 z-50 overflow-y-auto shadow-2xl"
           >
             {/* Header */}
-            <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-5 py-4">
+            <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-4 z-10">
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white font-mono">
-                    {order.code.slice(0, 3)}-{order.code.slice(3)}
-                  </h2>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <StatusBadge status={order.status} />
-                    <span className="text-xs text-gray-400">
-                      {formatDateTime(order.created_at)}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={onClose}
+                    className="p-2 -ml-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  <div>
+                    <h2 className="text-2xl font-bold font-mono tracking-wider text-gray-900 dark:text-gray-100">
+                      {formatOrderCode(order.code)}
+                    </h2>
+                    <span
+                      className="text-xs font-medium px-2 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: `${statusColor}20`,
+                        color: statusColor,
+                      }}
+                    >
+                      {statusLabel}
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                >
-                  ✕
-                </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {formatDate(order.created_at)}
+                </span>
               </div>
             </div>
 
-            <div className="px-5 py-5 space-y-5">
-              {/* Customer info */}
-              <Section title="Cliente">
-                <InfoLine icon="👤" label="Nombre" value={order.customer_name} />
-                <InfoLine icon="📱" label="Teléfono" value={formatPhone(order.customer_phone)} />
-              </Section>
-
-              {/* Delivery */}
-              <Section title="Entrega">
-                <InfoLine icon="📍" label="Dirección" value={order.delivery_address} />
-                {order.delivery_instructions && (
-                  <InfoLine icon="📝" label="Instrucciones" value={order.delivery_instructions} />
-                )}
-              </Section>
-
-              {/* Items */}
-              <Section title="Productos">
+            <div className="px-4 py-4 space-y-6">
+              {/* Items detallados */}
+              <section>
+                <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                  Detalle del pedido
+                </h3>
                 <div className="space-y-3">
-                  {(Array.isArray(order.items) ? order.items : []).map((item: OrderItem, idx: number) => (
-                    <DetailItemRow key={idx} item={item} />
-                  ))}
+                  {items.map((item, idx) => {
+                    return (
+                      <div
+                        key={idx}
+                        className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-orange-500 shrink-0">
+                                {item.quantity}x
+                              </span>
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {item.name}
+                              </span>
+                            </div>
+                            {item.variant_name && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-7">
+                                Variante: {item.variant_name}
+                              </span>
+                            )}
+                            {/* Modifier groups */}
+                            {item.modifiers && item.modifiers.length > 0 && (
+                              <div className="mt-1.5 ml-7 space-y-1">
+                                {item.modifiers.map((group, gIdx) => (
+                                  <div key={gIdx}>
+                                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                      {group.group_name}:
+                                    </span>
+                                    {group.selections.map((sel, sIdx) => (
+                                      <span key={sIdx} className="text-xs text-gray-600 dark:text-gray-300 ml-1">
+                                        {sel.name}
+                                        {sel.price_cents > 0 && (
+                                          <span className="text-gray-400"> (+{formatCurrency(sel.price_cents)})</span>
+                                        )}
+                                        {sIdx < group.selections.length - 1 && ','}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums shrink-0 ml-2">
+                            {formatCurrency(item.line_total_cents || item.total_cents || (item.unit_price_cents * item.quantity))}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </Section>
+              </section>
 
-              {/* Totals */}
-              <Section title="Resumen">
-                <div className="space-y-1.5">
-                  <TotalLine label="Subtotal" cents={order.subtotal_cents} />
-                  {order.delivery_fee_cents > 0 && (
-                    <TotalLine label="Delivery" cents={order.delivery_fee_cents} />
-                  )}
-                  {order.service_fee_cents > 0 && (
-                    <TotalLine label="Servicio" cents={order.service_fee_cents} />
-                  )}
-                  {order.discount_cents > 0 && (
-                    <TotalLine label="Descuento" cents={-order.discount_cents} isDiscount />
-                  )}
-                  <div className="border-t border-gray-200 dark:border-gray-700 pt-1.5 mt-2">
-                    <TotalLine label="Total" cents={order.total_cents} isBold />
-                  </div>
+              {/* Resumen económico (solo lo que el restaurante puede ver) */}
+              <section className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-bold text-gray-900 dark:text-gray-100">
+                    Total comida
+                  </span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+                    {formatCurrency(order.subtotal_cents)}
+                  </span>
                 </div>
-              </Section>
+              </section>
 
-              {/* Payment */}
-              <Section title="Pago">
-                <InfoLine
-                  icon={order.payment_method === 'cash' ? '💵' : order.payment_method === 'pos' ? '💳' : '📱'}
-                  label="Método"
-                  value={paymentMethodLabels[order.payment_method] || order.payment_method}
-                />
-                <InfoLine
-                  icon="📊"
-                  label="Estado"
-                  value={order.payment_status === 'paid' ? 'Pagado' : order.payment_status === 'refunded' ? 'Reembolsado' : 'Pendiente'}
-                />
-              </Section>
-
-              {/* Rejection reason if applicable */}
-              {order.status === 'rejected' && order.rejection_reason && (
-                <Section title="Rechazo">
-                  <div className="bg-red-50 dark:bg-red-950/20 rounded-lg px-3 py-2.5 border border-red-100 dark:border-red-900/30">
-                    <p className="text-sm text-red-700 dark:text-red-400 font-medium">
-                      {rejectionReasonText(order.rejection_reason)}
-                    </p>
-                    {order.rejection_notes && (
-                      <p className="text-xs text-red-600 dark:text-red-500 mt-1">
-                        {order.rejection_notes}
-                      </p>
-                    )}
+              {/* Rider asignado */}
+              {order.rider_name && (
+                <section className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                    Rider asignado
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🏍️</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {order.rider_name}
+                    </span>
                   </div>
-                </Section>
+                </section>
               )}
 
-              {/* Rating */}
+              {/* Rechazo (si aplica) */}
+              {order.status === 'rejected' && (
+                <section className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <h3 className="text-sm font-semibold text-red-500 uppercase tracking-wider mb-2">
+                    Motivo de rechazo
+                  </h3>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    {order.rejection_reason ? rejectionReasonLabels[order.rejection_reason] || order.rejection_reason : 'Sin motivo'}
+                  </p>
+                  {order.rejection_notes && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {order.rejection_notes}
+                    </p>
+                  )}
+                </section>
+              )}
+
+              {/* Rating del cliente (si existe) */}
               {order.customer_rating && (
-                <Section title="Calificación">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">
-                      {'⭐'.repeat(order.customer_rating)}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      ({order.customer_rating}/5)
-                    </span>
+                <section className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                    Calificación del cliente
+                  </h3>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <span key={i} className={`text-lg ${i < order.customer_rating! ? 'text-yellow-400' : 'text-gray-300'}`}>
+                        ★
+                      </span>
+                    ))}
                   </div>
                   {order.customer_comment && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 italic">
-                      &quot;{order.customer_comment}&quot;
+                      &ldquo;{order.customer_comment}&rdquo;
                     </p>
                   )}
-                </Section>
+                </section>
               )}
 
-              {/* Timestamps */}
-              <Section title="Tiempos">
-                <div className="space-y-1">
-                  <TimeLine label="Creado" time={order.created_at} />
-                  {order.confirmed_at && <TimeLine label="Confirmado cliente" time={order.confirmed_at} />}
-                  {order.restaurant_confirmed_at && <TimeLine label="Aceptado restaurante" time={order.restaurant_confirmed_at} />}
-                  {order.ready_at && <TimeLine label="Listo" time={order.ready_at} />}
-                  {order.delivered_at && <TimeLine label="Entregado" time={order.delivered_at} />}
-                  {order.cancelled_at && <TimeLine label="Cancelado" time={order.cancelled_at} />}
+              {/* Timeline */}
+              <section className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                  Historial
+                </h3>
+                <div className="space-y-3">
+                  {timeline.filter(t => t.time).map((event, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                      event.status === 'rejected' || event.status === 'cancelled' ? 'bg-red-500' : 'bg-green-500'
+                    }`} />
+                      <div className="flex-1">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {event.label}
+                        </span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                          {formatDate(event.time!)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </Section>
+              </section>
             </div>
+
+            {/* Action buttons (sticky bottom) */}
+            {(showAcceptReject || showPreparing || showMarkReady) && (
+              <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-4 space-y-2">
+                {showAcceptReject && (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => onAccept?.(order.id)}
+                      className="flex-1 py-3 text-sm font-bold rounded-xl text-white bg-green-500 hover:bg-green-600 active:bg-green-700 transition-colors"
+                    >
+                      Aceptar pedido
+                    </button>
+                    <button
+                      onClick={() => onReject?.(order.id)}
+                      className="flex-1 py-3 text-sm font-bold rounded-xl text-white bg-red-500 hover:bg-red-600 active:bg-red-700 transition-colors"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                )}
+                {showPreparing && (
+                  <button
+                    onClick={() => onMarkPreparing?.(order.id)}
+                    className="w-full py-3 text-sm font-bold rounded-xl text-white bg-amber-500 hover:bg-amber-600 active:bg-amber-700 transition-colors"
+                  >
+                    Comenzar preparación 🍳
+                  </button>
+                )}
+                {showMarkReady && (
+                  <button
+                    onClick={() => onMarkReady?.(order.id)}
+                    className="w-full py-3 text-sm font-bold rounded-xl text-white bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 transition-colors"
+                  >
+                    Marcar como listo ✓
+                  </button>
+                )}
+              </div>
+            )}
           </motion.div>
-        </div>
+        </>
       )}
-    </AnimatePresence>,
-    document.body
+    </AnimatePresence>
   );
-}
-
-// ─── Sub-components ─────────────────────────────────────────
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-        {title}
-      </h3>
-      {children}
-    </div>
-  );
-}
-
-function InfoLine({ icon, label, value }: { icon: string; label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-2 py-1">
-      <span className="text-sm">{icon}</span>
-      <div className="min-w-0">
-        <span className="text-xs text-gray-400 dark:text-gray-500">{label}</span>
-        <p className="text-sm text-gray-900 dark:text-white break-words">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function DetailItemRow({ item }: { item: OrderItem }) {
-  return (
-    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            {item.quantity}x {item.name}
-          </p>
-          {item.variant_name && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Variante: {item.variant_name}
-            </p>
-          )}
-        </div>
-        <span className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
-          {formatPrice(item.line_total_cents)}
-        </span>
-      </div>
-
-      {item.modifiers && item.modifiers.length > 0 && (
-        <div className="mt-1.5 space-y-1 border-t border-gray-200 dark:border-gray-700 pt-1.5">
-          {item.modifiers.map((mod, i) => (
-            <div key={i} className="text-xs">
-              <span className="text-gray-400 dark:text-gray-500 font-medium">
-                {mod.group_name}:
-              </span>{' '}
-              <span className="text-gray-600 dark:text-gray-400">
-                {mod.selections.map((s) => {
-                  const price = s.price_cents > 0 ? ` (+${formatPrice(s.price_cents)})` : '';
-                  return `${s.name}${price}`;
-                }).join(', ')}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TotalLine({ label, cents, isBold, isDiscount }: {
-  label: string; cents: number; isBold?: boolean; isDiscount?: boolean;
-}) {
-  return (
-    <div className={`flex justify-between text-sm ${isBold ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
-      <span>{label}</span>
-      <span className={`tabular-nums ${isDiscount ? 'text-green-600 dark:text-green-400' : ''}`}>
-        {isDiscount ? '-' : ''}{formatPrice(Math.abs(cents))}
-      </span>
-    </div>
-  );
-}
-
-function TimeLine({ label, time }: { label: string; time: string }) {
-  return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-gray-500 dark:text-gray-400">{label}</span>
-      <span className="text-gray-700 dark:text-gray-300 font-mono">
-        {formatDateTime(time)}
-      </span>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    pending_confirmation: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    preparing: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
-    ready: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400',
-    delivered: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-    rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-    cancelled: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-  };
-
-  return (
-    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${colors[status] || 'bg-gray-100 text-gray-600'}`}>
-      {orderStatusLabels[status] || status}
-    </span>
-  );
-}
-
-// ─── Helpers ────────────────────────────────────────────────
-
-function formatDateTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleString('es-PE', {
-    timeZone: 'America/Lima',
-    day: '2-digit', month: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
-
-function formatPhone(phone: string): string {
-  const clean = phone.replace('+51', '').replace(/\D/g, '');
-  return clean.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
-}
-
-function rejectionReasonText(reason: string): string {
-  const map: Record<string, string> = {
-    item_out_of_stock: 'Plato(s) agotado(s)',
-    closing_soon: 'Cierra pronto',
-    kitchen_issue: 'Problema en cocina',
-    other: 'Otro motivo',
-  };
-  return map[reason] || reason;
 }

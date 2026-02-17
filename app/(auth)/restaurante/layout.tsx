@@ -71,19 +71,23 @@ function RestaurantLayoutInner({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Mobile header */}
-      <RestaurantMobileHeader />
+      <RestaurantMobileHeader
+        restaurantName={restaurant.name}
+        logoUrl={restaurant.logo_url}
+      />
 
-      <div className="flex">
-        {/* Desktop sidebar */}
-        <RestaurantSidebar />
+      {/* Desktop sidebar */}
+      <RestaurantSidebar
+        restaurantName={restaurant.name}
+        logoUrl={restaurant.logo_url}
+      />
 
-        {/* Main content */}
-        <main className="flex-1 min-h-screen pb-20 md:pb-0">
-          <div className="max-w-[1280px] mx-auto p-4 md:p-6">
-            {children}
-          </div>
-        </main>
-      </div>
+      {/* Main content — offset for fixed sidebar (desktop) and header (mobile) */}
+      <main className="min-h-screen pt-14 pb-20 md:pt-0 md:pb-0 md:ml-64">
+        <div className="max-w-[1280px] mx-auto p-4 md:p-6">
+          {children}
+        </div>
+      </main>
 
       {/* Mobile bottom nav */}
       <RestaurantBottomNav />

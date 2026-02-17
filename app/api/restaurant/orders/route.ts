@@ -1,106 +1,140 @@
 // ============================================================
-// GET /api/restaurant/orders
-// Returns orders for the authenticated restaurant
-// Query params: ?status=pending_confirmation,confirmed,preparing,ready
-// Chat 5 — Fragment 3/7
+// GET /api/restaurant/orders — Pedidos activos del restaurante
+// SEGURIDAD: Stripea datos del cliente antes de enviar
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-
-async function createAuthClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
-}
-
-function createServiceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { sanitizeOrdersForRestaurant } from '@/lib/utils/sanitize-order';
 
 export async function GET(request: NextRequest) {
   try {
-    // 1. Auth
-    const supabase = await createAuthClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const supabase = await createServerSupabaseClient();
 
+    // Verificar autenticación
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // 2. Get restaurant
-    const serviceClient = createServiceClient();
-    const { data: restaurant } = await serviceClient
+    // Obtener restaurante del usuario
+    const { data: restaurant, error: restError } = await supabase
       .from('restaurants')
       .select('id')
       .eq('owner_id', user.id)
-      .eq('is_active', true)
       .single();
 
-    if (!restaurant) {
-      return NextResponse.json({ error: 'Sin restaurante' }, { status: 404 });
+    if (restError || !restaurant) {
+      return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 });
     }
 
-    // 3. Parse query params
+    // Obtener status filter del query param (opcional)
     const { searchParams } = new URL(request.url);
     const statusFilter = searchParams.get('status');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
 
-    // 4. Build query
-    let query = serviceClient
+    // Query base: pedidos activos (no cart, no cancelled, no delivered)
+    let query = supabase
       .from('orders')
       .select(`
-        id, code, customer_name, customer_phone,
-        delivery_address, delivery_instructions,
-        items, subtotal_cents, delivery_fee_cents,
-        service_fee_cents, discount_cents, total_cents,
-        status, rejection_reason, rejection_notes,
-        payment_method, payment_status, source,
+        id,
+        code,
+        city_id,
+        restaurant_id,
+        rider_id,
+        customer_name,
+        customer_phone,
+        delivery_address,
+        delivery_lat,
+        delivery_lng,
+        delivery_instructions,
+        delivery_fee_cents,
+        delivery_zone_id,
+        service_fee_cents,
+        discount_cents,
+        total_cents,
+        rider_bonus_cents,
+        confirmation_token,
+        confirmation_expires_at,
+        items,
+        subtotal_cents,
+        status,
+        rejection_reason,
+        rejection_notes,
+        payment_method,
+        payment_status,
+        source,
+        created_at,
+        confirmed_at,
+        restaurant_confirmed_at,
+        ready_at,
+        assigned_at,
+        picked_up_at,
+        in_transit_at,
+        delivered_at,
+        cancelled_at,
         estimated_prep_time_minutes,
-        customer_rating, customer_comment,
-        created_at, confirmed_at, restaurant_confirmed_at,
-        ready_at, delivered_at, cancelled_at, updated_at
+        estimated_delivery_time_minutes,
+        customer_rating,
+        customer_comment,
+        updated_at
       `)
       .eq('restaurant_id', restaurant.id)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+      .order('created_at', { ascending: false });
 
-    // Filter by status (comma-separated)
     if (statusFilter) {
-      const statuses = statusFilter.split(',').map(s => s.trim());
-      query = query.in('status', statuses);
+      query = query.eq('status', statusFilter);
     } else {
-      // Default: exclude 'cart' status
-      query = query.neq('status', 'cart');
+      // Por defecto: pedidos activos (excluir cart, delivered, cancelled)
+      query = query.not('status', 'in', '("cart","delivered","cancelled")');
     }
 
-    const { data: orders, error: queryError } = await query;
+    const { data: orders, error: ordersError } = await query;
 
-    if (queryError) {
-      console.error('[/api/restaurant/orders] Query error:', queryError);
-      return NextResponse.json({ error: 'Error al obtener pedidos' }, { status: 500 });
+    if (ordersError) {
+      console.error('Error fetching restaurant orders:', ordersError);
+      return NextResponse.json({ error: 'Error obteniendo pedidos' }, { status: 500 });
     }
 
-    return NextResponse.json({ orders: orders || [] });
-  } catch (err) {
-    console.error('[/api/restaurant/orders] Error:', err);
+    // 🔒 SEGURIDAD: Stripear datos sensibles del cliente
+    const sanitizedOrders = sanitizeOrdersForRestaurant(orders || []);
+
+    // Obtener info del rider para pedidos que tienen rider asignado
+    const riderIds = [...new Set((orders || []).filter(o => o.rider_id).map(o => o.rider_id))];
+    let ridersMap: Record<string, string> = {};
+
+    if (riderIds.length > 0) {
+      const { data: riders } = await supabase
+        .from('riders')
+        .select('id, user_id')
+        .in('id', riderIds);
+
+      if (riders && riders.length > 0) {
+        const userIds = riders.map(r => r.user_id);
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', userIds);
+
+        if (users) {
+          for (const rider of riders) {
+            const riderUser = users.find(u => u.id === rider.user_id);
+            if (riderUser) {
+              ridersMap[rider.id] = riderUser.name;
+            }
+          }
+        }
+      }
+    }
+
+    // Agregar nombre del rider a pedidos sanitizados
+    const ordersWithRider = sanitizedOrders.map(order => ({
+      ...order,
+      rider_name: order.rider_id ? (ridersMap[order.rider_id as string] || null) : null,
+    }));
+
+    return NextResponse.json({ orders: ordersWithRider });
+  } catch (error) {
+    console.error('Unexpected error in restaurant orders:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }

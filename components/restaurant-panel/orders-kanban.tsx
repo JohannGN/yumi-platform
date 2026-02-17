@@ -1,129 +1,169 @@
 'use client';
 
 // ============================================================
-// Orders Kanban — 4 columns with Supabase Realtime
-// Columns: Pendientes → Confirmados → Preparando → Listos
-// Chat 5 — Fragment 3/7
+// OrdersKanban — Panel de pedidos del restaurante
+// FIX 2: Realtime escucha INSERT + UPDATE (antes solo UPDATE)
+// FIX 4: Polling fallback 15s, pausa cuando tab no visible
+// SEGURIDAD: Sanitiza datos de Realtime con sanitizeOrderForRestaurant
 // ============================================================
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
-import { useRestaurant } from '@/components/restaurant-panel';
-import { OrderCardPanel } from './order-card-panel';
-import { OrderDetailSheet } from './order-detail-sheet';
+import { sanitizeOrderForRestaurant } from '@/lib/utils/sanitize-order';
+import OrderCardPanel, { type SanitizedOrder } from './order-card-panel';
+import OrderDetailSheet from './order-detail-sheet';
 import { RejectOrderModal } from './reject-order-modal';
-import type { PanelOrder } from '@/types/restaurant-panel';
+import { ConfirmModal } from './confirm-modal';
+import { useRestaurant } from './restaurant-context';
 
-const KANBAN_STATUSES = [
-  'pending_confirmation',
-  'confirmed',
-  'preparing',
-  'ready',
+// Columnas del kanban para desktop
+const KANBAN_COLUMNS = [
+  {
+    key: 'pending',
+    label: 'Nuevos',
+    statuses: ['pending_confirmation', 'awaiting_confirmation'],
+    color: '#8B5CF6',
+  },
+  {
+    key: 'active',
+    label: 'En preparación',
+    statuses: ['confirmed', 'preparing'],
+    color: '#F59E0B',
+  },
+  {
+    key: 'ready',
+    label: 'Listos',
+    statuses: ['ready', 'assigned_rider', 'picked_up', 'in_transit'],
+    color: '#06B6D4',
+  },
 ] as const;
 
-const COLUMN_CONFIG: Record<string, { title: string; emoji: string; color: string; bgColor: string }> = {
-  pending_confirmation: {
-    title: 'Pendientes',
-    emoji: '🔔',
-    color: 'border-yellow-400',
-    bgColor: 'bg-yellow-50 dark:bg-yellow-950/10',
-  },
-  confirmed: {
-    title: 'Confirmados',
-    emoji: '✅',
-    color: 'border-blue-400',
-    bgColor: 'bg-blue-50 dark:bg-blue-950/10',
-  },
-  preparing: {
-    title: 'Preparando',
-    emoji: '🍳',
-    color: 'border-orange-400',
-    bgColor: 'bg-orange-50 dark:bg-orange-950/10',
-  },
-  ready: {
-    title: 'Listos',
-    emoji: '🎉',
-    color: 'border-cyan-400',
-    bgColor: 'bg-cyan-50 dark:bg-cyan-950/10',
-  },
-};
+// Tabs para mobile (mismas columnas)
+const MOBILE_TABS = KANBAN_COLUMNS.map(col => ({
+  key: col.key,
+  label: col.label,
+  statuses: col.statuses,
+  color: col.color,
+}));
 
-export function OrdersKanban() {
+// Sonido de notificación usando Web Audio API
+function playNotificationSound() {
+  try {
+    const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+    oscillator.frequency.setValueAtTime(1100, audioCtx.currentTime + 0.1); // ~C#6
+    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2);
+
+    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+
+    oscillator.start(audioCtx.currentTime);
+    oscillator.stop(audioCtx.currentTime + 0.4);
+  } catch {
+    // Silently fail if audio not supported
+  }
+}
+
+export default function OrdersKanban() {
   const { restaurant } = useRestaurant();
-  const [orders, setOrders] = useState<PanelOrder[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>('pending_confirmation');
-  const [actioningId, setActioningId] = useState<string | null>(null);
+  const restaurantId = restaurant?.id;
+  const [orders, setOrders] = useState<SanitizedOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>('pending');
+  const [selectedOrder, setSelectedOrder] = useState<SanitizedOrder | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [rejectOrderId, setRejectOrderId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    orderId: string;
+    action: string;
+    title: string;
+    message: string;
+  } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // Detail sheet
-  const [detailOrder, setDetailOrder] = useState<PanelOrder | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isVisibleRef = useRef(true);
 
-  // Reject modal
-  const [rejectingOrder, setRejectingOrder] = useState<PanelOrder | null>(null);
-  const [isRejecting, setIsRejecting] = useState(false);
-
-  // Sound ref
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const prevOrderIdsRef = useRef<Set<string>>(new Set());
-
-  // ─── Fetch orders ─────────────────────────────────────────
-
+  // ═══════════════════════════════════════════════════
+  // Fetch initial orders
+  // ═══════════════════════════════════════════════════
   const fetchOrders = useCallback(async () => {
     try {
-      const statusParam = KANBAN_STATUSES.join(',');
-      const res = await fetch(`/api/restaurant/orders?status=${statusParam}`);
-      if (res.ok) {
-        const data = await res.json();
-        const newOrders: PanelOrder[] = data.orders || [];
-
-        // Check for new pending orders → play sound
-        const newPending = newOrders.filter(
-          (o) =>
-            o.status === 'pending_confirmation' &&
-            !prevOrderIdsRef.current.has(o.id)
-        );
-
-        if (newPending.length > 0 && prevOrderIdsRef.current.size > 0) {
-          playNotificationSound();
-        }
-
-        prevOrderIdsRef.current = new Set(newOrders.map((o) => o.id));
-        setOrders(newOrders);
-      }
-    } catch (err) {
-      console.error('Error fetching orders:', err);
+      const res = await fetch('/api/restaurant/orders');
+      if (!res.ok) throw new Error('Failed to fetch orders');
+      const data = await res.json();
+      setOrders(data.orders || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
 
-  // ─── Initial load ─────────────────────────────────────────
-
+  // ═══════════════════════════════════════════════════
+  // Initial load
+  // ═══════════════════════════════════════════════════
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
 
-  // ─── Supabase Realtime ────────────────────────────────────
-
+  // ═══════════════════════════════════════════════════
+  // FIX 2: Supabase Realtime — INSERT + UPDATE
+  // ═══════════════════════════════════════════════════
   useEffect(() => {
-    if (!restaurant?.id) return;
+    if (!restaurantId) return;
 
     const supabase = createClient();
 
     const channel = supabase
-      .channel(`restaurant-orders-${restaurant.id}`)
+      .channel(`restaurant-orders-${restaurantId}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: '*', // INSERT + UPDATE + DELETE
           schema: 'public',
           table: 'orders',
-          filter: `restaurant_id=eq.${restaurant.id}`,
+          filter: `restaurant_id=eq.${restaurantId}`,
         },
-        () => {
-          // Refetch on any order change
-          fetchOrders();
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            // 🔒 Sanitizar antes de guardar en estado
+            const sanitized = sanitizeOrderForRestaurant(
+              payload.new as Record<string, unknown>
+            ) as unknown as SanitizedOrder;
+
+            setOrders((prev) => {
+              // Evitar duplicados
+              if (prev.some((o) => o.id === sanitized.id)) return prev;
+              return [sanitized, ...prev];
+            });
+
+            // 🔔 Notificación sonora
+            playNotificationSound();
+          } else if (payload.eventType === 'UPDATE') {
+            const sanitized = sanitizeOrderForRestaurant(
+              payload.new as Record<string, unknown>
+            ) as unknown as SanitizedOrder;
+
+            setOrders((prev) =>
+              prev.map((o) => (o.id === sanitized.id ? sanitized : o))
+            );
+
+            // Actualizar detalle si está abierto
+            setSelectedOrder((prev) =>
+              prev?.id === sanitized.id ? sanitized : prev
+            );
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as { id: string }).id;
+            setOrders((prev) => prev.filter((o) => o.id !== deletedId));
+          }
         }
       )
       .subscribe();
@@ -131,44 +171,55 @@ export function OrdersKanban() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [restaurant?.id, fetchOrders]);
+  }, [restaurantId]);
 
-  // ─── Sound notification ───────────────────────────────────
+  // ═══════════════════════════════════════════════════
+  // FIX 4: Polling fallback (15s), pausa cuando tab oculta
+  // ═══════════════════════════════════════════════════
+  useEffect(() => {
+    const handleVisibility = () => {
+      isVisibleRef.current = document.visibilityState === 'visible';
 
-  function playNotificationSound() {
-    try {
-      if (!audioRef.current) {
-        // Create a simple beep using Web Audio API
-        const ctx = new AudioContext();
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-        oscillator.frequency.value = 800;
-        oscillator.type = 'sine';
-        gain.gain.value = 0.3;
-        oscillator.start();
-        // Double beep
-        setTimeout(() => { gain.gain.value = 0; }, 150);
-        setTimeout(() => { gain.gain.value = 0.3; }, 250);
-        setTimeout(() => {
-          oscillator.stop();
-          ctx.close();
-        }, 400);
+      if (isVisibleRef.current) {
+        // Tab visible de nuevo → fetch inmediato + reiniciar polling
+        fetchOrders();
+        startPolling();
+      } else {
+        // Tab oculta → pausar polling
+        stopPolling();
       }
-    } catch {
-      // Audio might not be available
-    }
-  }
+    };
 
-  // ─── Order actions ────────────────────────────────────────
+    const startPolling = () => {
+      stopPolling();
+      pollingRef.current = setInterval(() => {
+        if (isVisibleRef.current) {
+          fetchOrders();
+        }
+      }, 15000); // 15 segundos
+    };
 
-  const updateOrderStatus = useCallback(async (
-    orderId: string,
-    newStatus: string,
-    extra?: { rejection_reason?: string; rejection_notes?: string }
-  ) => {
-    setActioningId(orderId);
+    const stopPolling = () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    startPolling();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      stopPolling();
+    };
+  }, [fetchOrders]);
+
+  // ═══════════════════════════════════════════════════
+  // Actions
+  // ═══════════════════════════════════════════════════
+  const updateOrderStatus = async (orderId: string, newStatus: string, extra?: Record<string, unknown>) => {
+    setActionLoading(true);
     try {
       const res = await fetch(`/api/restaurant/orders/${orderId}/status`, {
         method: 'PATCH',
@@ -176,168 +227,194 @@ export function OrdersKanban() {
         body: JSON.stringify({ status: newStatus, ...extra }),
       });
 
-      if (res.ok) {
-        // Optimistic update
-        setOrders((prev) =>
-          prev.map((o) =>
-            o.id === orderId ? { ...o, status: newStatus as PanelOrder['status'] } : o
-          )
-        );
-      } else {
-        const err = await res.json();
-        alert(err.error || 'Error al actualizar');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Error al actualizar');
       }
-    } catch {
-      alert('Error de conexión');
+
+      // Realtime se encargará de actualizar el estado,
+      // pero hacemos un update optimista también
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+      );
+
+      // Cerrar modales
+      setConfirmAction(null);
+      setRejectOrderId(null);
+      setDetailOpen(false);
+    } catch (error) {
+      console.error('Error updating order:', error);
+      alert(error instanceof Error ? error.message : 'Error al actualizar pedido');
     } finally {
-      setActioningId(null);
+      setActionLoading(false);
     }
-  }, []);
+  };
 
-  const handleAccept = useCallback((orderId: string) => {
-    updateOrderStatus(orderId, 'confirmed');
-  }, [updateOrderStatus]);
-
-  const handleReject = useCallback((orderId: string) => {
-    const order = orders.find((o) => o.id === orderId);
-    if (order) setRejectingOrder(order);
-  }, [orders]);
-
-  const handleConfirmReject = useCallback(async (reason: string, notes: string) => {
-    if (!rejectingOrder) return;
-    setIsRejecting(true);
-    await updateOrderStatus(rejectingOrder.id, 'rejected', {
-      rejection_reason: reason,
-      rejection_notes: notes || undefined,
+  const handleAccept = (orderId: string) => {
+    setConfirmAction({
+      orderId,
+      action: 'confirmed',
+      title: 'Aceptar pedido',
+      message: '¿Confirmar que aceptas este pedido? Comenzará la preparación.',
     });
-    setIsRejecting(false);
-    setRejectingOrder(null);
-  }, [rejectingOrder, updateOrderStatus]);
+  };
 
-  const handlePreparing = useCallback((orderId: string) => {
+  const handleReject = (orderId: string) => {
+    setRejectOrderId(orderId);
+  };
+
+  const handleRejectConfirm = (reason: string, notes?: string) => {
+    if (!rejectOrderId) return;
+    updateOrderStatus(rejectOrderId, 'rejected', {
+      rejection_reason: reason,
+      rejection_notes: notes,
+    });
+  };
+
+  const handleMarkPreparing = (orderId: string) => {
     updateOrderStatus(orderId, 'preparing');
-  }, [updateOrderStatus]);
+  };
 
-  const handleReady = useCallback((orderId: string) => {
-    updateOrderStatus(orderId, 'ready');
-  }, [updateOrderStatus]);
+  const handleMarkReady = (orderId: string) => {
+    setConfirmAction({
+      orderId,
+      action: 'ready',
+      title: 'Marcar como listo',
+      message: '¿El pedido está listo para que el rider lo recoja?',
+    });
+  };
 
-  // ─── Group by status ─────────────────────────────────────
+  const handleViewDetail = (order: SanitizedOrder) => {
+    setSelectedOrder(order);
+    setDetailOpen(true);
+  };
 
-  const ordersByStatus = KANBAN_STATUSES.reduce(
-    (acc, status) => {
-      acc[status] = orders.filter((o) => o.status === status);
-      return acc;
-    },
-    {} as Record<string, PanelOrder[]>
-  );
+  // ═══════════════════════════════════════════════════
+  // Helpers
+  // ═══════════════════════════════════════════════════
+  const getOrdersForColumn = (statuses: readonly string[]) =>
+    orders.filter((o) => statuses.includes(o.status));
 
-// ─── Render ───────────────────────────────────────────────
+  const getCountForColumn = (statuses: readonly string[]) =>
+    orders.filter((o) => statuses.includes(o.status)).length;
+
+  // ═══════════════════════════════════════════════════
+  // Render
+  // ═══════════════════════════════════════════════════
+  if (loading || !restaurantId) {
+    return (
+      <div className="space-y-4 p-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <>
-      {/* ══ MOBILE: Tabs + vertical list ══ */}
+      {/* ═══ MOBILE: Tabs ═══ */}
       <div className="md:hidden">
-        {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-4 overflow-x-auto">
-          {KANBAN_STATUSES.map((status) => {
-            const config = COLUMN_CONFIG[status];
-            const count = (ordersByStatus[status] || []).length;
-            const isActive = activeTab === status;
-
+        {/* Tab bar */}
+        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 sticky top-0 z-10">
+          {MOBILE_TABS.map((tab) => {
+            const count = getCountForColumn(tab.statuses);
+            const isActive = activeTab === tab.key;
             return (
               <button
-                key={status}
-                onClick={() => setActiveTab(status)}
-                className={`
-                  flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap
-                  transition-all duration-200 flex-1 justify-center
-                  ${isActive
-                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 py-3 px-2 text-sm font-medium text-center relative transition-colors ${
+                  isActive
+                    ? 'text-gray-900 dark:text-gray-100'
                     : 'text-gray-500 dark:text-gray-400'
-                  }
-                `}
+                }`}
               >
-                <span>{config.emoji}</span>
-                <span className="hidden min-[400px]:inline">{config.title}</span>
+                <span>{tab.label}</span>
                 {count > 0 && (
-                  <span className={`
-                    min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold
-                    ${isActive
-                      ? 'bg-[#FF6B35] text-white'
-                      : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                    }
-                  `}>
+                  <span
+                    className="ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full text-white"
+                    style={{ backgroundColor: tab.color }}
+                  >
                     {count}
                   </span>
+                )}
+                {isActive && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute bottom-0 left-0 right-0 h-0.5"
+                    style={{ backgroundColor: tab.color }}
+                  />
                 )}
               </button>
             );
           })}
         </div>
 
-        {/* Active tab content — vertical cards */}
-        <div className="space-y-3 min-h-[calc(100vh-16rem)] pb-24">
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-36 bg-white dark:bg-gray-800 rounded-xl animate-pulse" />
-              ))}
-            </div>
-          ) : (ordersByStatus[activeTab] || []).length > 0 ? (
-            <AnimatePresence mode="popLayout">
-              {(ordersByStatus[activeTab] || []).map((order) => (
-                <OrderCardPanel
-                  key={order.id}
-                  order={order}
-                  onAccept={handleAccept}
-                  onReject={handleReject}
-                  onPreparing={handlePreparing}
-                  onReady={handleReady}
-                  onViewDetail={setDetailOrder}
-                  isActioning={actioningId === order.id}
-                />
-              ))}
-            </AnimatePresence>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-600">
-              <span className="text-4xl mb-2">{COLUMN_CONFIG[activeTab]?.emoji}</span>
-              <p className="text-sm">Sin pedidos {COLUMN_CONFIG[activeTab]?.title.toLowerCase()}</p>
-            </div>
-          )}
+        {/* Tab content */}
+        <div className="p-4 space-y-3">
+          {MOBILE_TABS.filter((tab) => tab.key === activeTab).map((tab) => {
+            const columnOrders = getOrdersForColumn(tab.statuses);
+            return (
+              <div key={tab.key}>
+                {columnOrders.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+                    <p className="text-lg">Sin pedidos</p>
+                    <p className="text-sm mt-1">Los pedidos nuevos aparecerán aquí</p>
+                  </div>
+                ) : (
+                  <AnimatePresence mode="popLayout">
+                    {columnOrders.map((order) => (
+                      <div key={order.id} className="mb-3">
+                        <OrderCardPanel
+                          order={order}
+                          onAccept={handleAccept}
+                          onReject={handleReject}
+                          onMarkReady={handleMarkReady}
+                          onViewDetail={handleViewDetail}
+                        />
+                      </div>
+                    ))}
+                  </AnimatePresence>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* ══ DESKTOP: 4-column grid ══ */}
-      <div className="hidden md:grid md:grid-cols-4 gap-4 min-h-[calc(100vh-12rem)]">
-        {KANBAN_STATUSES.map((status) => {
-          const config = COLUMN_CONFIG[status];
-          const columnOrders = ordersByStatus[status] || [];
-
+      {/* ═══ DESKTOP: Grid 3 columnas ═══ */}
+      <div className="hidden md:grid md:grid-cols-3 gap-4 p-4">
+        {KANBAN_COLUMNS.map((col) => {
+          const columnOrders = getOrdersForColumn(col.statuses);
           return (
-            <div key={status} className="flex flex-col">
+            <div key={col.key} className="min-h-[200px]">
               {/* Column header */}
-              <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-xl border-t-4 ${config.color} ${config.bgColor}`}>
-                <span className="text-lg">{config.emoji}</span>
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {config.title}
-                </span>
+              <div className="flex items-center gap-2 mb-3 px-1">
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: col.color }}
+                />
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  {col.label}
+                </h3>
                 {columnOrders.length > 0 && (
-                  <span className="ml-auto text-xs font-bold bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                  <span
+                    className="text-xs font-bold px-1.5 py-0.5 rounded-full text-white"
+                    style={{ backgroundColor: col.color }}
+                  >
                     {columnOrders.length}
                   </span>
                 )}
               </div>
 
-              {/* Column body */}
-              <div className={`flex-1 ${config.bgColor} bg-opacity-30 rounded-b-xl p-2.5 space-y-3 min-h-[200px]`}>
-                {isLoading ? (
-                  <div className="space-y-3">
-                    {Array.from({ length: 2 }).map((_, i) => (
-                      <div key={i} className="h-32 bg-white dark:bg-gray-800 rounded-xl animate-pulse" />
-                    ))}
+              {/* Column content */}
+              <div className="space-y-3">
+                {columnOrders.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                    Sin pedidos
                   </div>
-                ) : columnOrders.length > 0 ? (
+                ) : (
                   <AnimatePresence mode="popLayout">
                     {columnOrders.map((order) => (
                       <OrderCardPanel
@@ -345,17 +422,11 @@ export function OrdersKanban() {
                         order={order}
                         onAccept={handleAccept}
                         onReject={handleReject}
-                        onPreparing={handlePreparing}
-                        onReady={handleReady}
-                        onViewDetail={setDetailOrder}
-                        isActioning={actioningId === order.id}
+                        onMarkReady={handleMarkReady}
+                        onViewDetail={handleViewDetail}
                       />
                     ))}
                   </AnimatePresence>
-                ) : (
-                  <div className="flex items-center justify-center h-32 text-gray-400 dark:text-gray-600">
-                    <p className="text-xs text-center">Sin pedidos</p>
-                  </div>
                 )}
               </div>
             </div>
@@ -363,20 +434,41 @@ export function OrdersKanban() {
         })}
       </div>
 
+      {/* ═══ Modals ═══ */}
+
       {/* Order detail sheet */}
       <OrderDetailSheet
-        order={detailOrder}
-        onClose={() => setDetailOrder(null)}
+        order={selectedOrder}
+        isOpen={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        onAccept={handleAccept}
+        onReject={handleReject}
+        onMarkReady={handleMarkReady}
+        onMarkPreparing={handleMarkPreparing}
       />
 
-      {/* Reject modal */}
-      <RejectOrderModal
-        isOpen={!!rejectingOrder}
-        orderCode={rejectingOrder?.code || ''}
-        onConfirm={handleConfirmReject}
-        onCancel={() => setRejectingOrder(null)}
-        isLoading={isRejecting}
-      />
+ {rejectOrderId && (
+        <RejectOrderModal
+          isOpen={!!rejectOrderId}
+          orderCode={orders.find(o => o.id === rejectOrderId)?.code || ''}
+          onCancel={() => setRejectOrderId(null)}
+          onConfirm={handleRejectConfirm}
+          isLoading={actionLoading}
+        />
+      )}
+
+      {/* Confirm action modal */}
+      {confirmAction && (
+        <ConfirmModal
+          isOpen={!!confirmAction}
+          title={confirmAction.title}
+          message={confirmAction.message}
+          confirmLabel="Confirmar"
+          onConfirm={() => updateOrderStatus(confirmAction.orderId, confirmAction.action)}
+          onCancel={() => setConfirmAction(null)}
+          isLoading={actionLoading}
+        />
+      )}
     </>
   );
 }

@@ -5,7 +5,7 @@
 // Chat 5 — Fragment 3/7
 // ============================================================
 
-import { OrdersKanban } from '@/components/restaurant-panel/orders-kanban';
+import OrdersKanban from '@/components/restaurant-panel/orders-kanban';
 
 export default function PedidosPage() {
   return (

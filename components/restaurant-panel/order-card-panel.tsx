@@ -1,234 +1,216 @@
 'use client';
 
 // ============================================================
-// Order Card — Kanban card showing order details
-// Chat 5 — Fragment 3/7
+// OrderCardPanel — Tarjeta de pedido para el panel restaurante
+// SEGURIDAD: NO muestra datos del cliente (nombre, teléfono,
+//            dirección, delivery fee, total, descuentos)
+// Solo muestra: código, items, subtotal (valor comida), pago, rider
 // ============================================================
 
 import { motion } from 'framer-motion';
-import { formatPrice } from '@/lib/utils/rounding';
-import { paymentMethodLabels } from '@/config/tokens';
-import type { PanelOrder, OrderItem } from '@/types/restaurant-panel';
+import { formatCurrency, orderStatusLabels} from '@/config/tokens';
+import { colors } from '@/config/tokens';
 
-interface OrderCardPanelProps {
-  order: PanelOrder;
-  onAccept?: (orderId: string) => void;
-  onReject?: (orderId: string) => void;
-  onPreparing?: (orderId: string) => void;
-  onReady?: (orderId: string) => void;
-  onViewDetail?: (order: PanelOrder) => void;
-  isActioning?: boolean;
+// Tipo para los items dentro del JSONB del pedido
+interface OrderItem {
+  item_id: string;
+  variant_id?: string | null;
+  name: string;
+  variant_name?: string | null;
+  quantity: number;
+  unit_price_cents: number;
+  total_cents: number;
+  weight_kg?: number | null;
+  modifiers?: Array<{
+    group_name: string;
+    selections: Array<{
+      name: string;
+      price_cents: number;
+    }>;
+  }>;
 }
 
-export function OrderCardPanel({
+// Tipo de pedido sanitizado (sin datos sensibles del cliente)
+export interface SanitizedOrder {
+  id: string;
+  code: string;
+  restaurant_id: string;
+  rider_id?: string | null;
+  rider_name?: string | null;
+  items: OrderItem[];
+  subtotal_cents: number;
+  status: string;
+  rejection_reason?: string | null;
+  rejection_notes?: string | null;
+  payment_method: string;
+  payment_status: string;
+  source: string;
+  created_at: string;
+  confirmed_at?: string | null;
+  restaurant_confirmed_at?: string | null;
+  ready_at?: string | null;
+  assigned_at?: string | null;
+  picked_up_at?: string | null;
+  delivered_at?: string | null;
+  cancelled_at?: string | null;
+  estimated_prep_time_minutes?: number | null;
+  customer_rating?: number | null;
+  customer_comment?: string | null;
+  updated_at: string;
+}
+
+interface OrderCardPanelProps {
+  order: SanitizedOrder;
+  onAccept?: (orderId: string) => void;
+  onReject?: (orderId: string) => void;
+  onMarkReady?: (orderId: string) => void;
+  onViewDetail?: (order: SanitizedOrder) => void;
+}
+
+function formatOrderCode(code: string): string {
+  if (code.length === 6) {
+    return `${code.slice(0, 3)}-${code.slice(3)}`;
+  }
+  return code;
+}
+
+function getTimeSince(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Ahora';
+  if (mins < 60) return `${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs}h ${mins % 60}m`;
+}
+
+export default function OrderCardPanel({
   order,
   onAccept,
   onReject,
-  onPreparing,
-  onReady,
+  onMarkReady,
   onViewDetail,
-  isActioning,
 }: OrderCardPanelProps) {
-  const codeFormatted = `${order.code.slice(0, 3)}-${order.code.slice(3)}`;
-  const payLabel = paymentMethodLabels[order.payment_method] || order.payment_method;
-  const timeAgo = getTimeAgo(order.created_at);
-  const items: OrderItem[] = Array.isArray(order.items) ? order.items : [];
+  const items = (typeof order.items === 'string' ? JSON.parse(order.items) : order.items) as OrderItem[];
+  const statusColor = colors.orderStatus[order.status as keyof typeof colors.orderStatus] || '#9CA3AF';
+  const statusLabel = orderStatusLabels[order.status] || order.status;
 
-  const payIcons: Record<string, string> = {
-    cash: '💵',
-    pos: '💳',
-    yape: '📱',
-    plin: '📱',
-  };
+  // Determinar si mostrar botones de acción
+  const showAcceptReject = order.status === 'pending_confirmation';
+  const showMarkReady = order.status === 'confirmed' || order.status === 'preparing';
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+      onClick={() => onViewDetail?.(order)}
     >
-      {/* Header */}
-      <div
-        className="px-3.5 py-2.5 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-        onClick={() => onViewDetail?.(order)}
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-mono font-bold text-gray-900 dark:text-white">
-            {codeFormatted}
+      {/* Header: Código + Estado + Tiempo */}
+      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-700">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-bold font-mono tracking-wider text-gray-900 dark:text-gray-100">
+            {formatOrderCode(order.code)}
           </span>
-          <span className="text-[10px] text-gray-500 dark:text-gray-400">
-            {timeAgo}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-gray-600 dark:text-gray-400 truncate">
-            {order.customer_name}
-          </span>
-          <span className="text-[10px] text-gray-400">·</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {payIcons[order.payment_method] || ''} {payLabel}
+          <span
+            className="text-xs font-medium px-2 py-0.5 rounded-full"
+            style={{
+              backgroundColor: `${statusColor}20`,
+              color: statusColor,
+            }}
+          >
+            {statusLabel}
           </span>
         </div>
-      </div>
-
-      {/* Items */}
-      <div className="px-3.5 py-2.5 space-y-2 max-h-[200px] overflow-y-auto">
-        {items.map((item, idx) => (
-          <OrderItemRow key={idx} item={item} />
-        ))}
-      </div>
-
-      {/* Footer: total + delivery address */}
-      <div className="px-3.5 py-2.5 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[60%]">
-            📍 {order.delivery_address}
-          </span>
-          <span className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">
-            {formatPrice(order.total_cents)}
-          </span>
-        </div>
-        {order.delivery_instructions && (
-          <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 truncate">
-            📝 {order.delivery_instructions}
-          </p>
-        )}
-      </div>
-
-      {/* Actions */}
-      <OrderActions
-        status={order.status}
-        orderId={order.id}
-        onAccept={onAccept}
-        onReject={onReject}
-        onPreparing={onPreparing}
-        onReady={onReady}
-        isActioning={isActioning}
-      />
-    </motion.div>
-  );
-}
-
-// ─── Order Item Row (with modifiers) ────────────────────────
-
-function OrderItemRow({ item }: { item: OrderItem }) {
-  const paidModifiers = item.modifiers
-    ?.flatMap((m) => m.selections)
-    .filter((s) => s.price_cents > 0) || [];
-
-  return (
-    <div className="text-xs">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <span className="font-semibold text-gray-900 dark:text-white">
-            {item.quantity}x {item.name}
-          </span>
-          {item.variant_name && (
-            <span className="text-gray-500 dark:text-gray-400">
-              {' '}({item.variant_name})
-            </span>
-          )}
-        </div>
-        <span className="text-gray-600 dark:text-gray-400 tabular-nums whitespace-nowrap">
-          {formatPrice(item.line_total_cents)}
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          {getTimeSince(order.created_at)}
         </span>
       </div>
 
-      {/* Modifiers */}
-      {item.modifiers && item.modifiers.length > 0 && (
-        <div className="ml-4 mt-0.5 space-y-0.5">
-          {item.modifiers.map((mod, i) => (
-            <div key={i} className="text-gray-500 dark:text-gray-400">
-              <span className="text-gray-400 dark:text-gray-500">+ </span>
-              {mod.selections.map((s) => s.name).join(', ')}
-              {mod.selections.some((s) => s.price_cents > 0) && (
-                <span className="text-amber-600 dark:text-amber-400 ml-1">
-                  (+{formatPrice(
-                    mod.selections.reduce((sum, s) => sum + s.price_cents, 0)
-                  )})
+      {/* Items resumidos */}
+      <div className="px-4 py-3 space-y-1.5">
+        {items.slice(0, 4).map((item, idx) => (
+          <div key={idx} className="text-sm">
+            <div className="flex items-start gap-1">
+              <span className="font-medium text-gray-900 dark:text-gray-100 shrink-0">
+                {item.quantity}x
+              </span>
+              <div className="flex-1 min-w-0">
+                <span className="text-gray-800 dark:text-gray-200">
+                  {item.name}
                 </span>
-              )}
+                {item.variant_name && (
+                  <span className="text-gray-500 dark:text-gray-400 ml-1">
+                    ({item.variant_name})
+                  </span>
+                )}
+                {/* Modifiers */}
+                {item.modifiers && item.modifiers.length > 0 && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 pl-1">
+                    {item.modifiers.map((group, gIdx) => (
+                      <span key={gIdx}>
+                        {group.selections.map(s => s.name).join(', ')}
+                        {gIdx < item.modifiers!.length - 1 && ' · '}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          ))}
+          </div>
+        ))}
+        {items.length > 4 && (
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            +{items.length - 4} item{items.length - 4 > 1 ? 's' : ''} más
+          </span>
+        )}
+      </div>
+
+      {/* Footer: Subtotal + Pago + Rider */}
+      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 space-y-2">
+        {/* Subtotal (valor comida) y método de pago */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            Total comida: {formatCurrency(order.subtotal_cents)}
+          </span>
         </div>
-      )}
-    </div>
-  );
-}
 
-// ─── Action Buttons ─────────────────────────────────────────
+        {/* Rider asignado (si existe) */}
+        {order.rider_name && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+            <span>🏍️</span>
+            <span>Rider: {order.rider_name}</span>
+          </div>
+        )}
 
-function OrderActions({
-  status,
-  orderId,
-  onAccept,
-  onReject,
-  onPreparing,
-  onReady,
-  isActioning,
-}: {
-  status: string;
-  orderId: string;
-  onAccept?: (id: string) => void;
-  onReject?: (id: string) => void;
-  onPreparing?: (id: string) => void;
-  onReady?: (id: string) => void;
-  isActioning?: boolean;
-}) {
-  if (status === 'ready') return null; // No actions for ready orders
-
-  return (
-    <div className="px-3.5 py-2.5 border-t border-gray-100 dark:border-gray-800 flex gap-2">
-      {status === 'pending_confirmation' && (
-        <>
-          <button
-            onClick={() => onAccept?.(orderId)}
-            disabled={isActioning}
-            className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-          >
-            ✅ Aceptar
-          </button>
-          <button
-            onClick={() => onReject?.(orderId)}
-            disabled={isActioning}
-            className="py-2 px-3 rounded-lg bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 text-xs font-semibold transition-colors disabled:opacity-50"
-          >
-            ✕
-          </button>
-        </>
-      )}
-
-      {status === 'confirmed' && (
+        {/* Botones de acción */}
+        {showAcceptReject && (
+          <div className="flex gap-2 pt-1">
         <button
-          onClick={() => onPreparing?.(orderId)}
-          disabled={isActioning}
-          className="flex-1 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-        >
-          🍳 Preparando
-        </button>
-      )}
+              onClick={(e) => { e.stopPropagation(); onAccept?.(order.id); }}
+              className="flex-[2] py-2 text-sm font-semibold rounded-lg text-white bg-green-500 hover:bg-green-600 active:bg-green-700 transition-colors"
+            >
+              Aceptar
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onReject?.(order.id); }}
+              className="flex-[1] py-2 text-sm font-semibold rounded-lg text-white bg-red-500 hover:bg-red-600 active:bg-red-700 transition-colors"
+            >
+              Rechazar
+            </button>
+          </div>
+        )}
 
-      {status === 'preparing' && (
-        <button
-          onClick={() => onReady?.(orderId)}
-          disabled={isActioning}
-          className="flex-1 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-        >
-          🎉 ¡Listo!
-        </button>
-      )}
-    </div>
+        {showMarkReady && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onMarkReady?.(order.id); }}
+            className="w-full py-2 text-sm font-semibold rounded-lg text-white bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 transition-colors"
+          >
+            Marcar listo ✓
+          </button>
+        )}
+      </div>
+    </motion.div>
   );
-}
-
-// ─── Helper ─────────────────────────────────────────────────
-
-function getTimeAgo(dateStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (diff < 60) return 'ahora';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  return `${Math.floor(diff / 86400)}d`;
 }
