@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Obtener coordenadas del restaurante
     const { data: restaurant, error: restError } = await supabaseAdmin
       .from('restaurants')
-      .select('lat, lng')
+      .select('lat, lng, city_id')
       .eq('id', restaurantId)
       .single();
 
@@ -62,10 +62,12 @@ export async function GET(request: NextRequest) {
         zone_name: null,
         zone_id: null,
         is_covered: false,
+        rain_surcharge_cents: 0,
+        total_fee_cents: 0,
       });
     }
 
-    // Calcular fee — usamos coords del restaurante como "rider" temporal
+    // Calcular fee – usamos coords del restaurante como "rider" temporal
     const { data: feeData, error: feeError } = await supabaseAdmin.rpc(
       'calculate_delivery_fee',
       {
@@ -87,12 +89,29 @@ export async function GET(request: NextRequest) {
     }
 
     const fee = feeData?.[0];
+    const feeCents = roundUpCents(fee?.client_fee_cents || zone.base_fee_cents);
+
+    // === Chat 7A: Rain surcharge desde cities.settings ===
+    let rainSurchargeCents = 0;
+
+    const { data: city } = await supabaseAdmin
+      .from('cities')
+      .select('settings')
+      .eq('id', restaurant.city_id)
+      .single();
+
+    if (city?.settings?.rain_surcharge_active === true) {
+      rainSurchargeCents = Number(city.settings.rain_surcharge_cents) || 0;
+    }
+    // === Fin Chat 7A ===
 
     return NextResponse.json({
-      fee_cents: roundUpCents(fee?.client_fee_cents || zone.base_fee_cents),
+      fee_cents: feeCents,
       zone_name: fee?.zone_name || zone.zone_name,
       zone_id: zone.zone_id,
       is_covered: true,
+      rain_surcharge_cents: rainSurchargeCents,
+      total_fee_cents: feeCents + rainSurchargeCents,
     });
   } catch (error) {
     console.error('Delivery fee error:', error);

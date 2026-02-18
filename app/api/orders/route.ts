@@ -1,8 +1,8 @@
 // ============================================================
-// POST /api/orders — Crear pedido
+// POST /api/orders – Crear pedido
 // ✅ PRECIOS RECALCULADOS SERVER-SIDE (anti-fraude)
 // ✅ POS surcharge calculado en servidor
-// ✅ Frontend prices are IGNORED — only item IDs + quantities matter
+// ✅ Frontend prices are IGNORED – only item IDs + quantities matter
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,7 +16,7 @@ const supabaseAdmin = createClient(
 
 const WHATSAPP_NUMBER = '51953211536';
 const CONFIRMATION_MINUTES = 15;
-const POS_SURCHARGE_RATE = 0.045; // 4.5%
+// ❌ ELIMINADO: const POS_SURCHARGE_RATE = 0.045; → ahora se lee de platform_settings
 
 // Redondeo YUMI: siempre arriba al múltiplo de 10 céntimos
 function roundUpCents(cents: number): number {
@@ -49,9 +49,9 @@ interface OrderPayload {
   delivery_zone_id?: string | null;
   delivery_instructions?: string | null;
   items: OrderItemPayload[];
-  subtotal_cents: number;       // IGNORED — recalculated server-side
-  delivery_fee_cents: number;   // IGNORED — recalculated server-side
-  total_cents: number;          // IGNORED — recalculated server-side
+  subtotal_cents: number;       // IGNORED – recalculated server-side
+  delivery_fee_cents: number;   // IGNORED – recalculated server-side
+  total_cents: number;          // IGNORED – recalculated server-side
   payment_method: 'cash' | 'pos' | 'yape' | 'plin';
 }
 
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     }
 
     // === 4. RECALCULAR PRECIOS SERVER-SIDE (anti-fraude) ===
-    // Fetch actual prices from DB — NEVER trust frontend prices
+    // Fetch actual prices from DB – NEVER trust frontend prices
 
     const itemIds = payload.items.map((i) => i.menu_item_id);
     const variantIds = payload.items
@@ -288,12 +288,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // === 6. Calculate POS surcharge (server-side) ===
+    // === 6. Calculate POS surcharge dinámico desde platform_settings ===
+    // ANTES: serviceFeeCents = roundUpCents(Math.ceil(baseTotal * POS_SURCHARGE_RATE))
+    // AHORA: se lee pos_commission_rate y pos_igv_rate desde la BD
     const baseTotal = roundUpCents(serverSubtotalCents + serverDeliveryFeeCents);
     let serviceFeeCents = 0;
 
     if (payload.payment_method === 'pos') {
-      serviceFeeCents = roundUpCents(Math.ceil(baseTotal * POS_SURCHARGE_RATE));
+      const { data: platformSettings } = await supabaseAdmin
+        .from('platform_settings')
+        .select('pos_surcharge_enabled, pos_commission_rate, pos_igv_rate')
+        .single();
+
+      if (platformSettings?.pos_surcharge_enabled) {
+        const rate = Number(platformSettings.pos_commission_rate);
+        const igv = Number(platformSettings.pos_igv_rate);
+        serviceFeeCents = roundUpCents(baseTotal * rate * (1 + igv));
+      }
     }
 
     const serverTotalCents = roundUpCents(baseTotal + serviceFeeCents);
@@ -334,7 +345,7 @@ export async function POST(request: NextRequest) {
         items: serverOrderItems,               // ✅ Server-recalculated items
         subtotal_cents: serverSubtotalCents,    // ✅ Server-recalculated
         delivery_fee_cents: serverDeliveryFeeCents, // ✅ Server-recalculated
-        service_fee_cents: serviceFeeCents,     // ✅ POS surcharge (0 if not POS)
+        service_fee_cents: serviceFeeCents,     // ✅ POS surcharge dinámico (0 si no es POS)
         discount_cents: 0,
         total_cents: serverTotalCents,          // ✅ Server-recalculated
         status: 'awaiting_confirmation',

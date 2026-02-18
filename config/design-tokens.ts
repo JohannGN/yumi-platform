@@ -1,21 +1,21 @@
 // ============================================================
-// YUMI PLATFORM â€” DESIGN TOKENS COMPARTIDOS
-// VersiÃ³n: 2.1 (DEFINITIVO)
+// YUMI PLATFORM – DESIGN TOKENS COMPARTIDOS
+// Versión: 2.1 (DEFINITIVO)
 // Fecha: 09 Feb 2026
 // ============================================================
-// REGLA: TODOS los mÃ³dulos DEBEN importar estos tokens.
-//        PROHIBIDO definir colores, tamaÃ±os o labels ad-hoc.
+// REGLA: TODOS los módulos DEBEN importar estos tokens.
+//        PROHIBIDO definir colores, tamaños o labels ad-hoc.
 // ============================================================
 
 // === BRAND COLORS ===
 export const colors = {
   brand: {
-    primary: '#FF6B35',     // Naranja YUMI (CTA, botones principales)
+    primary: '#FF6B35',
     primaryLight: '#FF8F66',
     primaryDark: '#E55A25',
-    secondary: '#1B2A4A',   // Azul navy (headers, textos fuertes)
+    secondary: '#1B2A4A',
     secondaryLight: '#2D4066',
-    accent: '#FFB800',      // Amarillo (badges, notificaciones)
+    accent: '#FFB800',
     accentLight: '#FFD54F',
   },
   semantic: {
@@ -116,10 +116,10 @@ export const typography = {
   code: 'text-sm font-mono',
 } as const;
 
-// === STATUS LABELS (EspaÃ±ol) ===
+// === STATUS LABELS (Español) ===
 export const orderStatusLabels: Record<string, string> = {
   cart: 'Carrito',
-  awaiting_confirmation: 'Esperando confirmaciÃ³n',
+  awaiting_confirmation: 'Esperando confirmación',
   pending_confirmation: 'Pendiente de restaurante',
   confirmed: 'Confirmado',
   rejected: 'Rechazado',
@@ -155,8 +155,8 @@ export const penaltyLevelLabels: Record<string, string> = {
 export const escalationReasonLabels: Record<string, string> = {
   complaint: 'Queja', angry_customer: 'Cliente enojado',
   unintelligible_message: 'Mensaje incomprensible',
-  technical_issue: 'Problema tÃ©cnico', refund_request: 'Reembolso',
-  human_requested: 'PidiÃ³ hablar con humano',
+  technical_issue: 'Problema técnico', refund_request: 'Reembolso',
+  human_requested: 'Pidió hablar con humano',
   client_refuses_links: 'No quiere usar links',
   alcohol_request: 'Pedido de alcohol',
   medication_request: 'Pedido de medicamentos',
@@ -172,7 +172,7 @@ export const vehicleTypeLabels: Record<string, string> = {
 };
 
 export const riderPayTypeLabels: Record<string, string> = {
-  fixed_salary: 'Sueldo fijo', commission: 'ComisiÃ³n',
+  fixed_salary: 'Sueldo fijo', commission: 'Comisión',
 };
 
 // === LAYOUT TOKENS ===
@@ -199,22 +199,15 @@ export const animations = {
   slideUp: 'animate-in slide-in-from-bottom-2 duration-200',
   slideIn: 'animate-in slide-in-from-right-2 duration-200',
   spin: 'animate-spin',
-  // Heartbeat: al incrementar/decrementar cantidad en carrito
   heartbeat: 'animate-[heartbeat_0.3s_ease-in-out]',
-  // Ripple/ondas: tracking en tiempo real (gotas de agua expandiÃ©ndose)
   ripple: 'animate-[ripple_1.5s_ease-out_infinite]',
-  // Bounce entrada: al aÃ±adir item al carrito
   bounceIn: 'animate-[bounceIn_0.4s_cubic-bezier(0.68,-0.55,0.27,1.55)]',
-  // Slide carrito drawer
   drawerSlideUp: 'animate-[slideUp_0.3s_cubic-bezier(0.16,1,0.3,1)]',
-  // Pulse suave para badge de cantidad en carrito
   cartBadgePulse: 'animate-[pulse_0.5s_ease-in-out]',
-  // Page transition
   pageEnter: 'animate-in fade-in slide-in-from-right-4 duration-300',
   pageExit: 'animate-out fade-out slide-out-to-left-4 duration-200',
 } as const;
 
-// CSS keyframes (inyectar en globals.css)
 export const keyframes = `
 @keyframes heartbeat {
   0% { transform: scale(1); }
@@ -238,30 +231,28 @@ export const keyframes = `
 }
 `;
 
-// === CART RULES â€” ESCRITO EN PIEDRA ===
+// === CART RULES — ESCRITO EN PIEDRA ===
 export const cartRules = {
-  singleRestaurantOnly: true,       // âš ï¸ SOLO 1 restaurante a la vez
-  clearOnRestaurantChange: true,    // âš ï¸ Cambiar restaurante = borrar carrito
-  clearOnNavigateAway: true,        // âš ï¸ Salir del restaurante = borrar carrito
-  inactivityTimeoutMs: 2 * 60 * 60 * 1000,  // 2 horas â†’ auto-limpia localStorage
+  singleRestaurantOnly: true,
+  clearOnRestaurantChange: true,
+  clearOnNavigateAway: true,
+  inactivityTimeoutMs: 2 * 60 * 60 * 1000,
   storageKey: 'yumi_cart',
   cityKey: 'yumi_city',
-  displayMode: 'drawer' as const,   // Popup/drawer, NO pÃ¡gina separada
+  displayMode: 'drawer' as const,
   maxItems: 30,
   maxQuantityPerItem: 50,
-  // Confirmar antes de borrar si hay items
-  confirmClearThreshold: 1,         // Si hay â‰¥1 item, preguntar antes de borrar
+  confirmClearThreshold: 1,
 } as const;
 
 // === localStorage MANAGEMENT ===
 export const storageKeys = {
-  cart: 'yumi_cart',               // {restaurant_id, items[], updated_at}
-  city: 'yumi_city',              // {slug, name}
-  theme: 'yumi_theme',            // 'light' | 'dark' | 'auto'
+  cart: 'yumi_cart',
+  city: 'yumi_city',
+  theme: 'yumi_theme',
   lastActivity: 'yumi_last_activity',
 } as const;
 
-// Cleanup: llamar en cada carga de pÃ¡gina
 export function cleanupExpiredCart(): void {
   if (typeof window === 'undefined') return;
   const lastActivity = localStorage.getItem(storageKeys.lastActivity);
@@ -293,20 +284,18 @@ export const business = {
   riderBonusPerExtraKmCents: 50,
   gpsUpdateIntervalSeconds: 30,
   defaultPrepTimeMinutes: 30,
-  whatsappWindowHours: 24,       // Meta 24h messaging window
-  whatsappInitCommand: 'INICIO', // Comando para abrir ventana
+  whatsappWindowHours: 24,
+  whatsappInitCommand: 'INICIO',
   currency: 'PEN',
   currencySymbol: 'S/',
   phonePrefix: '+51',
   timezone: 'America/Lima',
   yumiWhatsApp: '+51953211536',
-  alcoholMonopoly: true,         // Solo YUMI autoriza venta de alcohol
-  desktopCartBlocked: true,      // Desktop NO permite armar carritos (GPS inexacto)
+  alcoholMonopoly: true,
+  desktopCartBlocked: true,
 } as const;
 
 // === DEVICE DETECTION ===
-// Desktop: muestra landing, categorÃ­as, restaurantes, menÃºs
-// Mobile: permite armar carrito y hacer pedidos
 export function isMobileDevice(): boolean {
   if (typeof window === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
@@ -368,7 +357,6 @@ export function formatOrderCode(code: string): string {
 }
 
 // === RESTAURANT THEME PALETTES ===
-// Cada restaurante elige una paleta que armoniza con YUMI
 export const restaurantThemes: Record<string, {
   primary: string; primaryLight: string; primaryDark: string;
   accent: string; gradient: string; label: string;
@@ -391,34 +379,34 @@ export const restaurantThemes: Record<string, {
   blue: {
     primary: '#3B82F6', primaryLight: '#60A5FA', primaryDark: '#2563EB',
     accent: '#38BDF8', gradient: 'from-blue-500 to-cyan-500',
-    label: 'Azul OcÃ©ano',
+    label: 'Azul Océano',
   },
   purple: {
     primary: '#8B5CF6', primaryLight: '#A78BFA', primaryDark: '#7C3AED',
     accent: '#F472B6', gradient: 'from-violet-500 to-purple-500',
-    label: 'PÃºrpura Real',
+    label: 'Púrpura Real',
   },
 };
 
 // === GOOGLE MAPS CONFIG ===
 export const googleMapsConfig = {
-  defaultCenter: { lat: -5.7083, lng: -78.8089 },  // JaÃ©n, PerÃº
+  defaultCenter: { lat: -5.7083, lng: -78.8089 },  // Jaén, Perú
   defaultZoom: 14,
   styles: {
-    rider: { icon: 'ðŸï¸', scale: 1.2 },
-    restaurant: { icon: 'ðŸª', scale: 1.0 },
-    customer: { icon: 'ðŸ“', scale: 1.0 },
+    rider: { icon: '🏍️', scale: 1.2 },
+    restaurant: { icon: '🪟', scale: 1.0 },
+    customer: { icon: '📍', scale: 1.0 },
   },
 } as const;
 
-// === TEST PHONES (solo para desarrollo) ===
+// === TEST PHONES ===
 export const testPhones = {
-  cliente: '+51999137944',      // Gonzalo
+  cliente: '+51999137944',
   restaurante: '+51998832498',
   rider: '+51960229711',
 } as const;
 
-// === DEFAULT IMAGES (restaurantes sin foto propia) ===
+// === DEFAULT IMAGES ===
 export const defaultImages = {
   restaurantLogo: '/images/defaults/restaurant-logo.svg',
   restaurantBanner: '/images/defaults/restaurant-banner.jpg',
@@ -427,39 +415,33 @@ export const defaultImages = {
   categoryFallback: '/images/defaults/category-fallback.svg',
 } as const;
 
-// === SKELETON PATTERNS (obligatorio en TODAS las pÃ¡ginas) ===
+// === SKELETON PATTERNS ===
 export const skeletonConfig = {
-  // Cantidad de items skeleton a mostrar por tipo
-  categoryGrid: 8,       // Grilla de categorÃ­as
-  restaurantList: 4,     // Lista de restaurantes
-  menuItems: 6,          // Items de menÃº
-  orderHistory: 3,       // Historial de pedidos
-  // DuraciÃ³n mÃ­nima del skeleton (evitar flash)
+  categoryGrid: 8,
+  restaurantList: 4,
+  menuItems: 6,
+  orderHistory: 3,
   minDisplayMs: 300,
 } as const;
 
 // === ORDER TRACKING PAGE ROUTES ===
-// URLs dinÃ¡micas: yumi.pe/jaen/donpep, yumi.pe/cix/brasaroja
 export const routes = {
-  // PÃºblico (sin auth) â€” Mobile + Desktop
   home: '/',
-  city: (slug: string) => `/${slug}`,                                        // /jaen
-  restaurant: (citySlug: string, restSlug: string) =>
-    `/${citySlug}/${restSlug}`,                                               // /jaen/donpep
+  city: (slug: string) => `/${slug}`,
+  restaurant: (citySlug: string, restSlug: string) => `/${citySlug}/${restSlug}`,
   menuItem: (citySlug: string, restSlug: string, itemId: string) =>
-    `/${citySlug}/${restSlug}/${itemId}`,                                     // /jaen/donpep/uuid
+    `/${citySlug}/${restSlug}/${itemId}`,
   checkout: (citySlug: string, restSlug: string) =>
-    `/${citySlug}/${restSlug}/checkout`,                                      // /jaen/donpep/checkout
-  orderTracking: (code: string) => `/pedido/${code}`,                        // /pedido/P3V6H2
-  confirmOrder: (token: string) => `/confirmar/${token}`,                    // /confirmar/abc123
-  // Auth required
+    `/${citySlug}/${restSlug}/checkout`,
+  orderTracking: (code: string) => `/pedido/${code}`,
+  confirmOrder: (token: string) => `/confirmar/${token}`,
   adminDashboard: '/admin',
   adminOrders: '/admin/pedidos',
   adminRestaurants: '/admin/restaurantes',
   adminRiders: '/admin/riders',
   adminCategories: '/admin/categorias',
   adminCities: '/admin/ciudades',
-  adminZones: '/admin/zonas',        // ðŸ—ºï¸ Dibujar/pegar polÃ­gonos de delivery
+  adminZones: '/admin/zonas',
   adminMap: '/admin/mapa',
   restaurantPanel: '/restaurante',
   riderPanel: '/rider',
@@ -467,14 +449,9 @@ export const routes = {
 
 // === NAVIGATION UX RULES ===
 export const navigationRules = {
-  // BotÃ³n "atrÃ¡s" SIEMPRE visible en mobile
   backButtonAlwaysVisible: true,
-  // Breadcrumb: Inicio > JaÃ©n > Don Pep > Pollo a la brasa
   showBreadcrumb: true,
-  // BÃºsqueda dentro del restaurante
   restaurantSearchEnabled: true,
-  // Placeholder del buscador
   searchPlaceholder: 'Buscar platos...',
-  // Desktop: mostrar banner "Pide desde tu celular"
   desktopMobileBanner: true,
 } as const;
