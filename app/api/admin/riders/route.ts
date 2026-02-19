@@ -134,15 +134,16 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json() as {
-      name: string;
-      email: string;
-      password: string;
-      phone: string;
-      city_id: string;
-      vehicle_type: string;
-      vehicle_plate?: string;
-      pay_type: string;
-    };
+    name: string;
+    email: string;
+    password: string;
+    phone: string;
+    city_id: string;
+    vehicle_type: string;
+    vehicle_plate?: string;
+    pay_type: string;
+    avatar_url?: string;
+     };
 
     if (!body.name || !body.email || !body.password || !body.phone || !body.city_id) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
@@ -171,16 +172,17 @@ export async function POST(req: NextRequest) {
 
     // Insertar en public.users
     const { error: userErr } = await serviceClient
-      .from('users')
-      .insert({
-        id:        newUserId,
-        role:      'rider',
-        city_id:   body.city_id,
-        name:      body.name,
-        phone:     body.phone.startsWith('+51') ? body.phone : `+51${body.phone}`,
-        email:     body.email,
-        is_active: true,
-      });
+  .from('users')
+  .insert({
+    id:         newUserId,
+    role:       'rider',
+    city_id:    body.city_id,
+    name:       body.name,
+    phone:      body.phone.startsWith('+51') ? body.phone : `+51${body.phone}`,
+    email:      body.email,
+    is_active:  true,
+    ...(body.avatar_url ? { avatar_url: body.avatar_url } : {}),
+  });
 
     if (userErr) {
       await serviceClient.auth.admin.deleteUser(newUserId);

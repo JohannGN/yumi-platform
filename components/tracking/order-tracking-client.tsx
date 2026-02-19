@@ -682,9 +682,17 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
           >
             <div className="flex items-center gap-3">
               {/* Rider avatar */}
-              <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-2xl shrink-0">
-                {vehicleIcons[rider.vehicle_type] || '🏍️'}
-              </div>
+              {rider.avatar_url ? (
+                <img
+                  src={rider.avatar_url}
+                  alt={rider.name}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-orange-400 shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-white text-lg font-bold shrink-0">
+                  {rider.name[0]?.toUpperCase() ?? 'R'}
+                </div>
+              )}
 
               {/* Rider info */}
               <div className="flex-1 min-w-0">
@@ -791,7 +799,7 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
                           `}
                           style={
                             isCurrent
-                              ? { backgroundColor: statusColor, ringColor: statusColor }
+                              ? { backgroundColor: statusColor, '--tw-ring-color': statusColor } as React.CSSProperties
                               : undefined
                           }
                         >

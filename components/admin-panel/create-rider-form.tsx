@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Loader2, Eye, EyeOff, UserPlus } from 'lucide-react';
+import { X, Loader2, Eye, EyeOff, UserPlus, Camera } from 'lucide-react';
 import { vehicleTypeLabels, riderPayTypeLabels } from '@/config/tokens';
 import type { CreateRiderPayload } from '@/types/admin-panel';
 
@@ -27,6 +27,15 @@ export function CreateRiderForm({ defaultCityId, onClose, onCreated }: CreateRid
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof CreateRiderPayload, string>>>({});
+  const [avatarFile, setAvatarFile]       = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
 
   const validate = (): boolean => {
     const errs: Partial<Record<keyof CreateRiderPayload, string>> = {};
@@ -43,6 +52,58 @@ export function CreateRiderForm({ defaultCityId, onClose, onCreated }: CreateRid
   const handleSubmit = async () => {
     if (!validate()) return;
     setSaving(true);
+    const handleSubmit = async () => {
+  if (!validate()) return;
+  setSaving(true);
+  setError('');
+  try {
+    const { createClient } = await import('@/lib/supabase/client');
+    const supabase = createClient();
+
+    // Subir avatar si hay uno seleccionado
+    let avatarUrl: string | undefined;
+    if (avatarFile) {
+      const ext = avatarFile.name.split('.').pop() ?? 'jpg';
+      // Usamos timestamp como nombre temporal — el userId aún no existe
+      const tempName = `riders/avatars/temp-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('yumi-images')
+        .upload(tempName, avatarFile, { upsert: true });
+
+      if (uploadError) throw new Error('Error al subir foto');
+
+      const { data: urlData } = supabase.storage
+        .from('yumi-images')
+        .getPublicUrl(tempName);
+      avatarUrl = urlData.publicUrl;
+    }
+
+    const payload = {
+      ...form,
+      phone: form.phone.startsWith('+51') ? form.phone : `+51${form.phone}`,
+      vehicle_plate: form.vehicle_plate || undefined,
+      ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
+    };
+
+    const res = await fetch('/api/admin/riders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const data = await res.json() as { error?: string };
+      throw new Error(data.error ?? 'Error al crear rider');
+    }
+
+    onCreated();
+    onClose();
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Error inesperado');
+  } finally {
+    setSaving(false);
+  }
+};
     setError('');
     try {
       const payload: CreateRiderPayload = {
@@ -102,6 +163,27 @@ export function CreateRiderForm({ defaultCityId, onClose, onCreated }: CreateRid
         {/* Form */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Datos personales */}
+          {/* Foto del rider */}
+          <div className="flex flex-col items-center gap-2">
+            <label className="cursor-pointer group">
+              <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover:border-orange-400 transition-colors flex items-center justify-center overflow-hidden">
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <Camera className="w-7 h-7 text-gray-400 group-hover:text-orange-400 transition-colors" />
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
+            </label>
+            <p className="text-xs text-gray-400">
+              {avatarPreview ? 'Toca para cambiar' : 'Foto del rider (opcional)'}
+            </p>
+          </div>
           <fieldset className="space-y-4">
             <legend className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
               Datos personales
@@ -117,18 +199,18 @@ export function CreateRiderForm({ defaultCityId, onClose, onCreated }: CreateRid
             </Field>
 
             <Field label="Teléfono *" error={fieldErrors.phone}>
-              <div className="flex">
-                <span className="flex items-center px-3 bg-gray-100 dark:bg-gray-800 border border-r-0 border-gray-200 dark:border-gray-700 rounded-l-lg text-sm text-gray-500 font-mono">
-                  +51
-                </span>
-                <input
-                  type="tel"
-                  placeholder="987 654 321"
-                  value={form.phone.replace('+51', '')}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="form-input rounded-l-none"
-                />
-              </div>
+            <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 focus-within:border-orange-500 transition-colors overflow-hidden">
+              <span className="flex items-center px-3 bg-gray-100 dark:bg-gray-800 text-sm text-gray-500 dark:text-gray-400 font-mono shrink-0 border-r border-gray-200 dark:border-gray-700">
+                +51
+              </span>
+              <input
+                type="tel"
+                placeholder="987 654 321"
+                value={form.phone.replace('+51', '')}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                className="flex-1 px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none"
+              />
+            </div>
             </Field>
           </fieldset>
 
@@ -141,7 +223,7 @@ export function CreateRiderForm({ defaultCityId, onClose, onCreated }: CreateRid
             <Field label="Email *" error={fieldErrors.email}>
               <input
                 type="email"
-                placeholder="rider@ejemplo.com"
+                placeholder="rider@yumi.pe"
                 {...f('email')}
                 className="form-input"
               />

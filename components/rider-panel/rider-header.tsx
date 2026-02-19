@@ -15,12 +15,20 @@ export function RiderHeader() {
       <div className="flex items-center justify-between px-4 py-3">
         {/* Logo + name */}
         <div className="flex items-center gap-2.5">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black text-white"
-            style={{ backgroundColor: colors.brand.primary }}
-          >
-            Y
-          </div>
+          {rider?.avatar_url ? (
+  <img
+    src={rider.avatar_url}
+    alt={rider.name}
+    className="w-8 h-8 rounded-lg object-cover"
+  />
+) : (
+  <div
+    className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black text-white"
+    style={{ backgroundColor: colors.brand.primary }}
+  >
+    {rider?.name?.[0]?.toUpperCase() ?? 'R'}
+  </div>
+)}
           <div>
             <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">
               YUMI <span className="text-gray-400 font-medium">Rider</span>
