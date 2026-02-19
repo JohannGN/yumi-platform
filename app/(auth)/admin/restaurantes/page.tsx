@@ -8,26 +8,29 @@ import CreateRestaurantForm from '@/components/admin-panel/create-restaurant-for
 
 export default function AdminRestaurantesPage() {
   const { user } = useAdmin();
-  const isOwner    = user?.role === 'owner';
+  const isOwner     = user?.role === 'owner';
   const isCityAdmin = user?.role === 'city_admin';
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId]         = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshKey, setRefreshKey]         = useState(0);
 
-  const handleCreated = () => {
-    setShowCreateForm(false);
-    setRefreshKey(k => k + 1);
-  };
-
-  const handleUpdated = () => {
-    setRefreshKey(k => k + 1);
-  };
+  const handleCreated = () => { setShowCreateForm(false); setRefreshKey(k => k + 1); };
+  const handleUpdated = () => { setRefreshKey(k => k + 1); };
 
   return (
-    <div className="flex h-full bg-white dark:bg-gray-900">
-      {/* Lista */}
-      <div className={`flex flex-col transition-all duration-300 ${selectedId ? 'w-1/2' : 'w-full'} border-r border-gray-200 dark:border-gray-700 overflow-hidden`}>
+    /*
+     * -m-4 lg:-m-6 cancela el padding del <main> en layout-client.tsx
+     * para que esta página ocupe todo el espacio edge-to-edge.
+     */
+    <div className="-m-4 lg:-m-6 h-[calc(100%+2rem)] lg:h-[calc(100%+3rem)] flex overflow-hidden bg-white dark:bg-gray-900">
+
+      {/* ── Lista ────────────────────────────────────────────── */}
+      <div
+        className={`flex flex-col transition-all duration-300 overflow-hidden border-r border-gray-200 dark:border-gray-700 ${
+          selectedId ? 'w-1/2' : 'w-full'
+        }`}
+      >
         <RestaurantsList
           key={refreshKey}
           selectedId={selectedId}
@@ -38,7 +41,7 @@ export default function AdminRestaurantesPage() {
         />
       </div>
 
-      {/* Detalle */}
+      {/* ── Panel detalle ────────────────────────────────────── */}
       {selectedId && (
         <div className="w-1/2 flex flex-col overflow-hidden">
           <RestaurantDetailAdmin
@@ -50,7 +53,7 @@ export default function AdminRestaurantesPage() {
         </div>
       )}
 
-      {/* Modal crear */}
+      {/* ── Modal crear ──────────────────────────────────────── */}
       {showCreateForm && (
         <CreateRestaurantForm
           onClose={() => setShowCreateForm(false)}

@@ -93,7 +93,7 @@ export default function AdminRidersPage() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden min-w-0">
         {viewMode === 'split' && (
           <div className="flex h-full gap-0">
             {/* Mapa 50% */}
@@ -106,7 +106,7 @@ export default function AdminRidersPage() {
             </div>
 
             {/* Lista 50% */}
-            <div className="w-1/2 flex flex-col overflow-hidden bg-white dark:bg-gray-900">
+            <div className="w-1/2 min-w-0 flex flex-col overflow-hidden bg-white dark:bg-gray-900">
               <RidersList
                 riders={riders}
                 loading={loading}

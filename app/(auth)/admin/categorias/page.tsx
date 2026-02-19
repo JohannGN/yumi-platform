@@ -7,7 +7,7 @@ import { AdminCategory } from '@/types/admin-panel';
 
 export default function AdminCategoriasPage() {
   const [editingCategory, setEditingCategory] = useState<AdminCategory | null | undefined>(undefined);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm]   = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleEditClick = (category: AdminCategory) => {
@@ -27,7 +27,7 @@ export default function AdminCategoriasPage() {
   };
 
   return (
-    <div className="h-full bg-white dark:bg-gray-900">
+    <div className="-m-4 lg:-m-6 h-[calc(100%+2rem)] lg:h-[calc(100%+3rem)] overflow-hidden bg-white dark:bg-gray-900">
       <CategoriesList
         key={refreshKey}
         onEditClick={handleEditClick}

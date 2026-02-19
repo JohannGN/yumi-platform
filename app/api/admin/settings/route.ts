@@ -38,7 +38,7 @@ export async function PATCH(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Only owner can modify settings
+    // Solo owner puede modificar settings
     const { data: userData } = await supabase
       .from('users')
       .select('role')
@@ -51,7 +51,7 @@ export async function PATCH(request: Request) {
 
     const body = await request.json() as Partial<PlatformSettings>;
 
-    // Validate fields
+    // Validar campos
     const updates: Partial<PlatformSettings> = {};
     if (typeof body.pos_surcharge_enabled === 'boolean') {
       updates.pos_surcharge_enabled = body.pos_surcharge_enabled;
@@ -69,14 +69,29 @@ export async function PATCH(request: Request) {
       updates.pos_igv_rate = body.pos_igv_rate;
     }
 
-    // platform_settings has exactly 1 row — update it
-    const { data: updated, error } = await supabase
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    // platform_settings tiene exactamente 1 fila.
+    // Supabase v2 bloquea update() sin filtro WHERE → primero obtenemos el id.
+    const { data: existing, error: fetchError } = await supabase
+      .from('platform_settings')
+      .select('id')
+      .single();
+
+    if (fetchError || !existing) {
+      return NextResponse.json({ error: 'Settings row not found' }, { status: 404 });
+    }
+
+    const { data: updated, error: updateError } = await supabase
       .from('platform_settings')
       .update(updates)
+      .eq('id', existing.id)
       .select()
       .single();
 
-    if (error) throw error;
+    if (updateError) throw updateError;
 
     return NextResponse.json(updated);
   } catch (error) {

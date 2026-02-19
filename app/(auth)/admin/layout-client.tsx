@@ -64,7 +64,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
             Las páginas que necesitan altura total (riders/pedidos con mapas) ponen
             h-full overflow-hidden en su propio div raíz — eso les da la referencia.
           */}
-          <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6">
             {children}
           </main>
         </div>

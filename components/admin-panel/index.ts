@@ -1,7 +1,45 @@
-export { AdminProvider, useAdmin } from './admin-context';
-export { AdminSidebar } from './admin-sidebar';
-export { AdminHeader } from './admin-header';
-export { ComingSoon } from './coming-soon';
-export { KpiCard } from './kpi-card';
-export { StatsChart } from './stats-chart';
-export { SettingsForm } from './settings-form';
+// ============================================================
+// BARREL EXPORTS — components/admin-panel/index.ts
+// INSTRUCCION: Reemplazar el archivo existente con este contenido
+// o agregar las 5 lineas nuevas al final del archivo existente
+// ============================================================
+
+// Existentes (NO modificar)
+export * from './admin-provider';
+export * from './admin-sidebar';
+export * from './admin-header';
+export * from './kpi-card';
+export * from './stats-chart';
+export * from './coming-soon';
+// Order management (7B)
+export * from './order-filters';
+export * from './orders-table';
+export * from './order-timeline';
+export * from './evidence-viewer';
+export * from './assign-rider-modal';
+export * from './order-detail-admin';
+// Rider management (7B)
+export * from './riders-map';
+export * from './riders-list';
+export * from './rider-detail-admin';
+export * from './create-rider-form';
+export * from './shift-logs-table';
+// Catalog (7C)
+export * from './restaurants-list';
+export * from './restaurant-detail-admin';
+export * from './create-restaurant-form';
+export * from './categories-list';
+export * from './category-form';
+export * from './cities-list';
+export * from './city-settings-form';
+export * from './zones-list';
+export * from './zones-map';
+export * from './zone-form';
+export * from './admin-context';
+
+// Financiero (8A) — NUEVOS
+export * from './financial-kpi-cards';
+export * from './financial-chart';
+export * from './cash-in-field-table';
+export * from './daily-reports-table';
+export * from './daily-report-detail';

@@ -11,6 +11,34 @@ interface CategoryFormProps {
 }
 
 const COMMON_EMOJIS = ['🍗', '🥡', '🍔', '🍕', '🥩', '🐟', '🍰', '🍦', '🥤', '🥗', '☕', '🍽️', '📦', '💊', '🛒', '🍺'];
+// Toggle — inline style para evitar purga Tailwind JIT
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      style={{ width: 48, height: 24, minWidth: 48 }}
+      className={`relative rounded-full shrink-0 transition-colors duration-200 ${
+        checked ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
+      }`}
+    >
+      <span
+        style={{
+          position: 'absolute',
+          top: 4,
+          left: checked ? 28 : 4,
+          width: 16,
+          height: 16,
+          transition: 'left 0.2s ease',
+        }}
+        className="bg-white rounded-full shadow-sm"
+      />
+    </button>
+  );
+}
+
 
 export default function CategoryForm({ category, onClose, onSaved }: CategoryFormProps) {
   const isEdit = Boolean(category);
@@ -155,17 +183,10 @@ export default function CategoryForm({ category, onClose, onSaved }: CategoryFor
               <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Visible en la plataforma</p>
               <p className="text-xs text-gray-500">Los clientes pueden ver esta categoría</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setForm(f => ({ ...f, is_visible: !f.is_visible }))}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                form.is_visible ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                form.is_visible ? 'translate-x-7' : 'translate-x-1'
-              }`} />
-            </button>
+            <Toggle
+              checked={form.is_visible}
+              onChange={() => setForm(f => ({ ...f, is_visible: !f.is_visible }))}
+            />
           </div>
         </div>
 
