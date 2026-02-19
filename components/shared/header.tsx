@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { MapPin } from 'lucide-react';
+import { MapPin, KeyRound } from 'lucide-react';
+import Link from 'next/link';
 import { ThemeToggle } from './theme-toggle';
 import { OrdersHeaderButton } from './order-history';
 import { colors } from '@/config/tokens';
@@ -47,10 +48,18 @@ export function Header({ cityName, citySlug }: HeaderProps) {
           )}
         </button>
 
-        <div className="flex items-center gap-1">
-          <OrdersHeaderButton />
-          <ThemeToggle />
-        </div>
+      <div className="flex items-center gap-1">
+        <OrdersHeaderButton />
+        <ThemeToggle />
+        <Link
+          href="/login"
+          className="p-1.5 rounded-full text-gray-300 hover:text-gray-500 dark:text-gray-700 dark:hover:text-gray-500 transition-colors"
+          title="Acceso staff"
+          aria-label="Acceso para restaurantes, riders y administración"
+        >
+          <KeyRound size={15} strokeWidth={1.5} />
+        </Link>
+      </div>
       </div>
     </header>
   );

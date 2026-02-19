@@ -77,15 +77,15 @@ export async function GET() {
     // 5. Revenue today (only delivered orders)
     const { data: deliveredOrders } = await serviceClient
       .from('orders')
-      .select('total_cents')
+      .select('subtotal_cents')
       .eq('restaurant_id', restaurant.id)
       .eq('status', 'delivered')
       .gte('created_at', todayStartUTC.toISOString());
 
-    const revenueToday = deliveredOrders?.reduce(
-      (sum, o) => sum + (o.total_cents || 0),
-      0
-    ) || 0;
+     const revenueToday = deliveredOrders?.reduce(
+      (sum, o) => sum + (o.subtotal_cents || 0),
+       0
+      ) || 0;
 
     // 6. Pending orders count
     const { count: pendingOrders } = await serviceClient

@@ -112,7 +112,11 @@ function useToggleOpen() {
   const handleToggle = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/restaurant/toggle-open', { method: 'PATCH' });
+      const res = await fetch('/api/restaurant/toggle-open', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ is_open: !isOpen }),
+});
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Error al cambiar estado');

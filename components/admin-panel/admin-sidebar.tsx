@@ -58,8 +58,8 @@ const catalogItems: NavItem[] = [
 const finanzasItems: NavItem[] = [
   { href: '/admin/finanzas',              icon: BarChart3, label: 'Dashboard'    },
   { href: '/admin/finanzas/caja',         icon: Wallet,    label: 'Caja'         },
-  { href: '/admin/finanzas/restaurantes', icon: Store,     label: 'Restaurantes', badge: 'Prox.' },
-  { href: '/admin/finanzas/riders',       icon: Bike,      label: 'Riders',       badge: 'Prox.' },
+  { href: '/admin/finanzas/restaurantes', icon: Store,     label: 'Restaurantes'},
+  { href: '/admin/finanzas/riders',       icon: Bike,      label: 'Riders'},
 ];
 
 function isActive(href: string, pathname: string) {
