@@ -106,3 +106,98 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  try {
+    const supabase = await createServerSupabaseClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile || !['owner', 'city_admin', 'agent'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+    }
+
+    const body = await req.json() as {
+      restaurant_id: string;
+      customer_name: string;
+      customer_phone: string;
+      delivery_address: string;
+      delivery_instructions?: string;
+      delivery_lat: number;
+      delivery_lng: number;
+      city_id: string;
+      items: {
+        item_id: string;
+        name: string;
+        quantity: number;
+        unit_price_cents: number;
+        total_cents: number;
+      }[];
+      subtotal_cents: number;
+      delivery_fee_cents: number;
+      total_cents: number;
+      payment_method: string;
+    };
+
+    if (!body.restaurant_id || !body.customer_name || !body.customer_phone ||
+        !body.delivery_address || !body.items?.length || !body.city_id) {
+      return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
+    }
+
+    const { createClient } = await import('@supabase/supabase-js');
+    const serviceClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    // Generar código único
+    const { data: codeRow } = await serviceClient
+      .rpc('generate_order_code');
+    const code = codeRow as string;
+
+    const { data: newOrder, error } = await serviceClient
+      .from('orders')
+      .insert({
+        code,
+        city_id:               body.city_id,
+        restaurant_id:         body.restaurant_id,
+        customer_name:         body.customer_name,
+        customer_phone:        body.customer_phone.startsWith('+51')
+                                 ? body.customer_phone
+                                 : `+51${body.customer_phone}`,
+        delivery_address:      body.delivery_address,
+        delivery_instructions: body.delivery_instructions ?? null,
+        delivery_lat:          body.delivery_lat,
+        delivery_lng:          body.delivery_lng,
+        items:                 body.items,
+        subtotal_cents:        body.subtotal_cents,
+        delivery_fee_cents:    body.delivery_fee_cents,
+        service_fee_cents:     0,
+        discount_cents:        0,
+        total_cents:           body.total_cents,
+        payment_method:        body.payment_method,
+        payment_status:        'pending',
+        status:                'confirmed',
+        source:                'admin',
+        restaurant_confirmed_at: new Date().toISOString(),
+      })
+      .select('id, code')
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({ order: newOrder }, { status: 201 });
+
+  } catch (err) {
+    console.error('[admin/orders POST]', err);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}

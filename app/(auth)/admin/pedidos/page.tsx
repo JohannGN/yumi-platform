@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Plus } from 'lucide-react';
+import { CreateOrderForm } from '@/components/admin-panel/create-order-form';
 import { OrderFilters } from '@/components/admin-panel/order-filters';
 import { OrdersTable } from '@/components/admin-panel/orders-table';
 import { OrderDetailAdmin } from '@/components/admin-panel/order-detail-admin';
@@ -16,6 +17,7 @@ export default function AdminPedidosPage() {
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [restaurants, setRestaurants]     = useState<FilterOption[]>([]);
   const [riders, setRiders]               = useState<FilterOption[]>([]);
+  const [showCreateOrder, setShowCreateOrder] = useState(false);
 
   const [filters, setFilters] = useState<AdminOrderFilters>({
     status:        [],
@@ -89,26 +91,36 @@ export default function AdminPedidosPage() {
     <div className="-m-4 lg:-m-6 h-[calc(100%+2rem)] lg:h-[calc(100%+3rem)] flex flex-col overflow-hidden">
 
       {/* ── Header ──────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            Gestión de Pedidos
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {total > 0
-              ? `${total} pedido${total !== 1 ? 's' : ''} encontrado${total !== 1 ? 's' : ''}`
-              : 'Vista de operaciones diarias'}
-          </p>
-        </div>
-        <button
-          onClick={() => fetchOrders()}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </button>
-      </div>
+      {/* ── Header ──────────────────────────────────────────── */}
+<div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
+  <div>
+    <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+      Gestión de Pedidos
+    </h1>
+    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+      {total > 0
+        ? `${total} pedido${total !== 1 ? 's' : ''} encontrado${total !== 1 ? 's' : ''}`
+        : 'Vista de operaciones diarias'}
+    </p>
+  </div>
+  <div className="flex items-center gap-2 shrink-0">
+    <button
+      onClick={() => setShowCreateOrder(true)}
+      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm bg-orange-500 hover:bg-orange-600 text-white font-semibold transition"
+    >
+      <Plus className="w-4 h-4" />
+      Crear pedido
+    </button>
+    <button
+      onClick={() => fetchOrders()}
+      disabled={loading}
+      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+    >
+      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+      Actualizar
+    </button>
+  </div>
+</div>
 
       {/* ── Filtros ──────────────────────────────────────────── */}
       <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
@@ -146,6 +158,17 @@ export default function AdminPedidosPage() {
           </div>
         )}
       </div>
+      {showCreateOrder && (
+        <CreateOrderForm
+          onClose={() => setShowCreateOrder(false)}
+          onCreated={(code) => {
+            setShowCreateOrder(false);
+            fetchOrders();
+            // Opcional: mostrar el código creado
+            console.log('Pedido creado:', code);
+          }}
+        />
+      )}
     </div>
   );
 }
