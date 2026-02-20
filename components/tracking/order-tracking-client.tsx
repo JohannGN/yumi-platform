@@ -10,6 +10,7 @@ import {
   rejectionReasonLabels,
   business,
 } from '@/config/tokens';
+import { updateOrderStatus } from '@/components/shared/order-history';
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -230,6 +231,9 @@ export function OrderTrackingClient({ code }: OrderTrackingClientProps) {
         setTimeout(() => setShowConfetti(false), 4000);
       }
       prevStatusRef.current = trackingData.order.status;
+
+      // Sync status to localStorage for ActiveOrderBanner
+      updateOrderStatus(code, trackingData.order.status);
 
       // Pre-fill rating
       if (trackingData.order.customer_rating) {

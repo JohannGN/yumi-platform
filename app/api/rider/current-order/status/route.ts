@@ -85,7 +85,7 @@ export async function PATCH(request: NextRequest) {
       status: newStatus,
     };
 
-    // For 'delivered' status: validate evidence
+    // For 'delivered' status: validate evidence + recalculate POS surcharge
     if (newStatus === 'delivered') {
       // Delivery proof is ALWAYS required
       if (!delivery_proof_url) {
@@ -109,6 +109,43 @@ export async function PATCH(request: NextRequest) {
           );
         }
         updateData.payment_proof_url = payment_proof_url;
+      }
+
+      // Recalculate POS surcharge if payment method changed
+      const originalMethod = order.payment_method;
+      if (actualMethod !== originalMethod) {
+        // Fetch full order for recalculation
+        const { data: fullOrder } = await supabase
+          .from('orders')
+          .select('subtotal_cents, delivery_fee_cents, service_fee_cents, total_cents')
+          .eq('id', order.id)
+          .single();
+
+        if (fullOrder) {
+          const roundUpCents = (c: number) => Math.ceil(c / 10) * 10;
+          let newServiceFee = 0;
+
+          if (actualMethod === 'pos') {
+            // Changed TO pos → add surcharge
+            const { data: settings } = await supabase
+              .from('platform_settings')
+              .select('pos_surcharge_enabled, pos_commission_rate, pos_igv_rate')
+              .single();
+
+            if (settings?.pos_surcharge_enabled) {
+              const base = fullOrder.subtotal_cents + fullOrder.delivery_fee_cents;
+              newServiceFee = roundUpCents(
+                Math.round(base * settings.pos_commission_rate * (1 + settings.pos_igv_rate))
+              );
+            }
+          }
+          // If changed FROM pos to cash/yape/plin → newServiceFee stays 0 (remove surcharge)
+
+          updateData.service_fee_cents = newServiceFee;
+          updateData.total_cents = roundUpCents(
+            fullOrder.subtotal_cents + fullOrder.delivery_fee_cents + newServiceFee
+          );
+        }
       }
 
       // Mark payment as paid

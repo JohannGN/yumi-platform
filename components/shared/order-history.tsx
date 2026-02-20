@@ -16,6 +16,7 @@ interface LocalOrder {
   restaurantName: string;
   totalCents: number;
   createdAt: string;
+  status?: string;
 }
 
 const STORAGE_KEY = 'yumi_order_history';
@@ -43,6 +44,21 @@ export function saveOrderToHistory(order: LocalOrder): void {
     // Silent fail
   }
 }
+
+export function updateOrderStatus(code: string, status: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const history = getOrderHistory();
+    const updated = history.map((o) =>
+      o.code === code ? { ...o, status } : o
+    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch {
+    // Silent fail
+  }
+}
+
+const TERMINAL_STATUSES = ['delivered', 'cancelled', 'rejected'];
 
 export function formatCode(code: string): string {
   return code.length === 6
@@ -79,10 +95,12 @@ export function ActiveOrderBanner() {
     const history = getOrderHistory();
     if (history.length === 0) return;
 
-    // Show banner for orders less than 2 hours old
+  // Show banner for orders less than 2 hours old AND not in terminal status
     const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
     const recent = history.find(
-      (o) => new Date(o.createdAt).getTime() > twoHoursAgo
+      (o) =>
+        new Date(o.createdAt).getTime() > twoHoursAgo &&
+        !TERMINAL_STATUSES.includes(o.status ?? '')
     );
 
     if (recent) {
@@ -176,10 +194,14 @@ export function OrderHistorySection() {
 
   const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
   const activeOrders = orders.filter(
-    (o) => new Date(o.createdAt).getTime() > twoHoursAgo
+    (o) =>
+      new Date(o.createdAt).getTime() > twoHoursAgo &&
+      !TERMINAL_STATUSES.includes(o.status ?? '')
   );
   const pastOrders = orders.filter(
-    (o) => new Date(o.createdAt).getTime() <= twoHoursAgo
+    (o) =>
+      new Date(o.createdAt).getTime() <= twoHoursAgo ||
+      TERMINAL_STATUSES.includes(o.status ?? '')
   );
 
   return (
