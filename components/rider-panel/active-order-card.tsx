@@ -218,6 +218,15 @@ export function ActiveOrderCard({
             </p>
           </div>
         )}
+        {/* Notas del agente */}
+        {order.notes && (
+          <div className="px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 mb-3">
+            <p className="text-xs text-blue-700 dark:text-blue-400">
+              <span className="font-bold">📋 Nota agente:</span>{' '}
+              {order.notes}
+            </p>
+          </div>
+        )}
 
         <button
           onClick={onNavigateClient}

@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useRestaurant } from '@/components/restaurant-panel';
 import { formatPrice } from '@/lib/utils/rounding';
@@ -267,6 +268,7 @@ function KPICard({
 // ─── Recent Order Row ───────────────────────────────────────
 
 function RecentOrderRow({ order }: { order: RecentOrder }) {
+  const router = useRouter();
   const statusLabel = orderStatusLabels[order.status] || order.status;
   const payLabel = paymentMethodLabels[order.payment_method] || order.payment_method;
   const timeAgo = getTimeAgo(order.created_at);
@@ -283,7 +285,10 @@ function RecentOrderRow({ order }: { order: RecentOrder }) {
   };
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+    <div
+      onClick={() => router.push(`/restaurante/pedidos?highlight=${order.id}`)}
+      className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+    >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-mono font-semibold text-gray-900 dark:text-white">

@@ -35,6 +35,7 @@ export interface RiderCurrentOrder {
   id: string;
   code: string;
   status: RiderOrderStatus;
+  notes?: string | null;
   // Cliente
   customer_name: string;
   customer_phone: string;

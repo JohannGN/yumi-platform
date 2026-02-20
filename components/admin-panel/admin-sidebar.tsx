@@ -20,7 +20,8 @@ import {
   PanelLeftOpen,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 // ============================================================
 // Props — deben coincidir exactamente con layout-client.tsx
@@ -93,10 +94,17 @@ function NavLink({
           : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white',
       ].join(' ')}
     >
-      <Icon className="w-4 h-4 flex-shrink-0" />
+      <div className="relative flex-shrink-0">
+        <Icon className="w-4 h-4" />
+        {collapsed && item.badge && (
+          <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold px-1 py-0.5 rounded-full bg-red-500 text-white min-w-[16px] text-center leading-none">
+            {item.badge}
+          </span>
+        )}
+      </div>
       {!collapsed && <span className="truncate flex-1">{item.label}</span>}
       {!collapsed && item.badge && (
-        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex-shrink-0">
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white min-w-[20px] text-center flex-shrink-0 animate-pulse">
           {item.badge}
         </span>
       )}
@@ -169,13 +177,19 @@ function SidebarGroup({
 // ============================================================
 // NavContent — reutilizado en desktop y mobile
 // ============================================================
-function NavContent({ collapsed, pathname }: { collapsed: boolean; pathname: string }) {
+function NavContent({ collapsed, pathname, pendingCount }: { collapsed: boolean; pathname: string; pendingCount: number }) {
+  const opsItems = operationsItems.map(item =>
+    item.href === '/admin/pedidos' && pendingCount > 0
+      ? { ...item, badge: pendingCount > 9 ? '9+' : String(pendingCount) }
+      : item
+  );
+
   return (
     <nav className="flex-1 overflow-y-auto p-3 space-y-4">
       <SidebarGroup
         icon={LayoutDashboard}
         label="Operaciones"
-        items={operationsItems}
+        items={opsItems}
         collapsed={collapsed}
         pathname={pathname}
         defaultOpen
@@ -212,6 +226,28 @@ export function AdminSidebar({
   const pathname = usePathname();
   const CollapseIcon = isCollapsed ? PanelLeftOpen : PanelLeftClose;
 
+  // Polling pedidos pendientes cada 30s
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const fetchPending = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { count } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['pending_confirmation', 'confirmed']);
+      setPendingCount(count ?? 0);
+    } catch {
+      // silently fail
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPending();
+    const interval = setInterval(fetchPending, 30000);
+    return () => clearInterval(interval);
+  }, [fetchPending]);
+
   return (
     <>
       {/* ── DESKTOP: fixed a la izquierda ──────────────────── */}
@@ -246,7 +282,7 @@ export function AdminSidebar({
           </button>
         </div>
 
-        <NavContent collapsed={isCollapsed} pathname={pathname} />
+        <NavContent collapsed={isCollapsed} pathname={pathname} pendingCount={pendingCount} />
 
         {/* Configuración */}
         <div className="p-3 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -287,7 +323,7 @@ export function AdminSidebar({
             </div>
 
             {/* Mobile nav — nunca colapsado */}
-            <NavContent collapsed={false} pathname={pathname} />
+            <NavContent collapsed={false} pathname={pathname} pendingCount={pendingCount} />
 
             <div className="p-3 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
               <NavLink

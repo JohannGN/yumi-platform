@@ -56,6 +56,7 @@ export interface SanitizedOrder {
   estimated_prep_time_minutes?: number | null;
   customer_rating?: number | null;
   customer_comment?: string | null;
+  notes?: string | null;
   updated_at: string;
 }
 
@@ -164,6 +165,14 @@ export default function OrderCardPanel({
           <span className="text-xs text-gray-400 dark:text-gray-500">
             +{items.length - 4} item{items.length - 4 > 1 ? 's' : ''} más
           </span>
+        )}
+
+        {/* Notas del agente */}
+        {order.notes && (
+          <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">📝 Nota del agente</p>
+            <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">{order.notes}</p>
+          </div>
         )}
       </div>
 
