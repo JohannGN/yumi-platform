@@ -1,163 +1,190 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-// Transiciones de estado válidas para admin
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  cart:                   ['awaiting_confirmation', 'cancelled'],
-  awaiting_confirmation:  ['pending_confirmation', 'cancelled'],
-  pending_confirmation:   ['confirmed', 'rejected', 'cancelled'],
-  confirmed:              ['preparing', 'cancelled'],
-  rejected:               ['cancelled'],
-  preparing:              ['ready', 'cancelled'],
-  ready:                  ['assigned_rider', 'cancelled'],
-  assigned_rider:         ['picked_up', 'cancelled'],
-  picked_up:              ['in_transit', 'cancelled'],
-  in_transit:             ['delivered', 'cancelled'],
-  delivered:              [],
-  cancelled:              [],
+  pending_confirmation: ['confirmed', 'rejected', 'cancelled'],
+  confirmed: ['preparing', 'cancelled'],
+  preparing: ['ready', 'cancelled'],
+  ready: ['assigned_rider', 'cancelled'],
+  assigned_rider: ['picked_up', 'cancelled'],
+  picked_up: ['in_transit'],
+  in_transit: ['delivered'],
+  delivered: [],
+  rejected: [],
+  cancelled: [],
 };
 
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
+// ─── GET — detalle de pedido (con historial) ──────────────────────────────────
 
-export async function GET(_req: NextRequest, { params }: RouteParams) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params;
+    const { id: orderId } = await params;
     const supabase = await createServerSupabaseClient();
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-    const { data: profile } = await supabase
+    const { data: userData } = await supabase
       .from('users')
       .select('role, city_id')
       .eq('id', user.id)
       .single();
 
-    if (!profile || !['owner', 'city_admin', 'agent'].includes(profile.role)) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+    if (!userData || !['owner', 'city_admin', 'agent'].includes(userData.role)) {
+      return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
     }
 
-    // Pedido completo con joins
-    const { data: order, error } = await supabase
+    // ── Fetch pedido completo ──────────────────────────────────────────────────
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(`
-        *,
-        restaurants!inner(id, name, address, phone),
-        riders(
-          id, vehicle_type, vehicle_plate,
-          users!inner(name, phone, email)
-        )
+        id, code, status, source,
+        restaurant_id, rider_id,
+        customer_name, customer_phone,
+        delivery_address, delivery_lat, delivery_lng, delivery_instructions,
+        items,
+        subtotal_cents, delivery_fee_cents, service_fee_cents,
+        discount_cents, total_cents, rider_bonus_cents,
+        payment_method, actual_payment_method, payment_status,
+        delivery_proof_url, payment_proof_url,
+        rejection_reason, rejection_notes,
+        customer_rating, customer_comment,
+        fee_is_manual, fee_calculated_cents,
+        notes,
+        created_at, confirmed_at, restaurant_confirmed_at,
+        ready_at, assigned_at, picked_up_at,
+        in_transit_at, delivered_at, cancelled_at,
+        restaurants!inner(id, name, slug),
+        riders(id, users(name, phone))
       `)
-      .eq('id', id)
+      .eq('id', orderId)
       .single();
 
-    if (error || !order) {
+    if (orderError || !order) {
       return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
     }
 
-    // Historial de estados
+    // City admin solo ve su ciudad
+    if (userData.role === 'city_admin' && userData.city_id) {
+      const { data: orderCity } = await supabase
+        .from('orders')
+        .select('city_id')
+        .eq('id', orderId)
+        .single();
+      if (orderCity?.city_id !== userData.city_id) {
+        return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
+      }
+    }
+
+    // ── Fetch historial de estados ────────────────────────────────────────────
     const { data: history } = await supabase
       .from('order_status_history')
-      .select('id, from_status, to_status, changed_by_user_id, notes, created_at')
-      .eq('order_id', id)
+      .select('id, from_status, to_status, notes, changed_by_user_id, created_at')
+      .eq('order_id', orderId)
       .order('created_at', { ascending: true });
 
-    // Formatear respuesta
-    const o = order as Record<string, unknown>;
-    const restaurant = o.restaurants as { id: string; name: string; address: string; phone: string } | null;
-    const riderJoin  = o.riders as {
-      id: string;
-      vehicle_type: string;
-      vehicle_plate: string | null;
-      users: { name: string; phone: string; email: string };
-    } | null;
+    // ── Enriquecer historial con nombre del usuario ───────────────────────────
+    const historyWithUsers = await Promise.all(
+      (history ?? []).map(async (h) => {
+        if (!h.changed_by_user_id) return { ...h, changed_by_name: null };
+        const { data: changedBy } = await supabase
+          .from('users')
+          .select('name, role')
+          .eq('id', h.changed_by_user_id)
+          .single();
+        return {
+          ...h,
+          changed_by_name: changedBy?.name ?? null,
+          changed_by_role: changedBy?.role ?? null,
+        };
+      })
+    );
+
+    // ── Transiciones válidas ──────────────────────────────────────────────────
+    const validNextStatuses = VALID_TRANSITIONS[order.status] ?? [];
 
     return NextResponse.json({
-      ...order,
-      restaurant_name:    restaurant?.name ?? '',
-      restaurant_address: restaurant?.address ?? '',
-      restaurant_phone:   restaurant?.phone ?? '',
-      rider_name:         riderJoin?.users?.name ?? null,
-      rider_phone:        riderJoin?.users?.phone ?? null,
-      rider_vehicle_type: riderJoin?.vehicle_type ?? null,
-      rider_vehicle_plate: riderJoin?.vehicle_plate ?? null,
-      restaurants: undefined,
-      riders: undefined,
-      status_history: history ?? [],
+      order,
+      history: historyWithUsers,
+      valid_next_statuses: validNextStatuses,
     });
-
   } catch (err) {
     console.error('[admin/orders/[id] GET]', err);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: RouteParams) {
+// ─── PATCH — cambiar estado / cancelar pedido ─────────────────────────────────
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params;
+    const { id: orderId } = await params;
     const supabase = await createServerSupabaseClient();
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-    const { data: profile } = await supabase
+    const { data: userData } = await supabase
       .from('users')
-      .select('role, city_id')
+      .select('role')
       .eq('id', user.id)
       .single();
 
-    if (!profile || !['owner', 'city_admin', 'agent'].includes(profile.role)) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+    if (!userData || !['owner', 'city_admin', 'agent'].includes(userData.role)) {
+      return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
     }
 
-    const body = await req.json() as { status?: string; rider_id?: string | null; notes?: string };
+    const body = await req.json();
+    const { status: newStatus, notes, rejection_reason, rejection_notes } = body;
 
     // Obtener estado actual
-    const { data: current, error: fetchErr } = await supabase
+    const { data: current } = await supabase
       .from('orders')
       .select('status, rider_id')
-      .eq('id', id)
+      .eq('id', orderId)
       .single();
 
-    if (fetchErr || !current) {
+    if (!current) {
       return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
     }
 
-    const updates: Record<string, unknown> = {};
-
-    // Cambio de estado
-    if (body.status !== undefined) {
-      const allowed = VALID_TRANSITIONS[current.status] ?? [];
-      if (!allowed.includes(body.status)) {
-        return NextResponse.json({
-          error: `Transición inválida: ${current.status} → ${body.status}`,
-        }, { status: 422 });
-      }
-      updates.status = body.status;
+    // Validar transición
+    const allowed = VALID_TRANSITIONS[current.status] ?? [];
+    if (!allowed.includes(newStatus)) {
+      return NextResponse.json(
+        { error: `Transición inválida: ${current.status} → ${newStatus}` },
+        { status: 400 }
+      );
     }
 
-    // Asignar/reasignar rider
-    if ('rider_id' in body) {
-      updates.rider_id = body.rider_id;
+    // Construir update
+    const updates: Record<string, unknown> = { status: newStatus };
+    if (notes) updates.notes = notes;
+    if (newStatus === 'rejected') {
+      updates.rejection_reason = rejection_reason ?? 'other';
+      updates.rejection_notes = rejection_notes ?? null;
     }
 
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'Sin cambios' }, { status: 400 });
-    }
-
-    const { data: updated, error: updateErr } = await supabase
+    const { data: updated, error } = await supabase
       .from('orders')
       .update(updates)
-      .eq('id', id)
-      .select()
+      .eq('id', orderId)
+      .select('id, code, status')
       .single();
 
-    if (updateErr) throw updateErr;
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
-    return NextResponse.json({ order: updated });
-
+    return NextResponse.json({ success: true, order: updated });
   } catch (err) {
     console.error('[admin/orders/[id] PATCH]', err);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });

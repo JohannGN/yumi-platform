@@ -12,6 +12,13 @@ import {
 } from '@/config/tokens';
 import type { AdminOrder } from '@/types/admin-panel';
 
+// Extiende AdminOrder con campos de auditoría de tarifa (migración fee-audit)
+// Mientras no estén en la interfaz base, usamos este tipo local
+type AdminOrderWithFee = AdminOrder & {
+  fee_is_manual?: boolean;
+  fee_calculated_cents?: number;
+};
+
 interface OrdersTableProps {
   orders: AdminOrder[];
   total: number;
@@ -162,6 +169,16 @@ export function OrdersTable({
                     <span className="font-bold text-gray-900 dark:text-gray-100 tabular-nums">
                       {formatCurrency(order.total_cents)}
                     </span>
+                    {(order as AdminOrderWithFee).fee_is_manual && (
+                      <div className="mt-0.5">
+                        <span
+                          className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                          style={{ background: 'rgba(245,158,11,0.15)', color: '#d97706' }}
+                        >
+                          FEE MANUAL
+                        </span>
+                      </div>
+                    )}
                   </td>
 
                   {/* Pago */}

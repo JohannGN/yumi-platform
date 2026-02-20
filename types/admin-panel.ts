@@ -84,6 +84,8 @@ export interface AdminOrder {
   in_transit_at: string | null;
   delivered_at: string | null;
   cancelled_at: string | null;
+  fee_is_manual: boolean;       
+  fee_calculated_cents: number;
 }
 
 export interface OrderItem {
@@ -391,4 +393,32 @@ export interface UpdateZonePayload {
   max_fee_cents?: number;
   color?: string;
   is_active?: boolean;
+}
+
+export interface CreateOrderPayload {
+  restaurant_id: string;
+  customer_name: string;
+  customer_phone: string;
+  delivery_address: string;
+  delivery_lat: number;
+  delivery_lng: number;
+  delivery_instructions?: string;
+  payment_method: 'cash' | 'pos' | 'yape' | 'plin';
+  delivery_fee_cents: number;
+  fee_is_manual: boolean;
+  fee_calculated_cents: number;
+  notes?: string;
+  items: Array<{
+    item_id: string;
+    name: string;
+    quantity: number;
+    unit_price_cents: number;
+    total_cents: number;
+    notes?: string;   
+    modifiers?: Array<{
+      modifier_id: string;
+      name: string;
+      price_cents: number;
+    }>;
+  }>;
 }

@@ -1,201 +1,311 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface OrderModifier {
+  modifier_id: string;
+  name: string;
+  price_cents: number;
+}
+
+interface OrderItemPayload {
+  item_id: string;
+  name: string;
+  quantity: number;
+  unit_price_cents: number;
+  total_cents: number;
+  modifiers?: OrderModifier[];
+}
+
+interface CreateOrderPayload {
+  restaurant_id: string;
+  customer_name: string;
+  customer_phone: string;
+  delivery_address: string;
+  delivery_lat: number;
+  delivery_lng: number;
+  delivery_instructions?: string;
+  payment_method: 'cash' | 'pos' | 'yape' | 'plin';
+  items: OrderItemPayload[];
+  notes?: string;
+  // Fee audit
+  fee_is_manual?: boolean;
+  fee_calculated_cents?: number;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function roundUpCents(cents: number): number {
+  return Math.ceil(cents / 10) * 10;
+}
+
+// ─── GET — lista de pedidos admin ────────────────────────────────────────────
+
+export async function GET(req: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
-
-    // Verificar sesión y rol
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
+    if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-    const { data: profile } = await supabase
+    const { data: userData } = await supabase
       .from('users')
       .select('role, city_id')
       .eq('id', user.id)
       .single();
 
-    if (!profile || !['owner', 'city_admin', 'agent'].includes(profile.role)) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+    if (!userData || !['owner', 'city_admin', 'agent'].includes(userData.role)) {
+      return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
     }
 
-    // Params
-    const { searchParams } = new URL(request.url);
-    const statusParam   = searchParams.get('status') ?? '';
-    const restaurantId  = searchParams.get('restaurant_id') ?? '';
-    const riderId       = searchParams.get('rider_id') ?? '';
-    const dateFrom      = searchParams.get('date_from') ?? '';
-    const dateTo        = searchParams.get('date_to') ?? '';
-    const search        = searchParams.get('search') ?? '';
-    const page          = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-    const limit         = Math.min(100, parseInt(searchParams.get('limit') ?? '50', 10));
-    const offset        = (page - 1) * limit;
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') ?? '1');
+    const limit = parseInt(searchParams.get('limit') ?? '20');
+    const status = searchParams.get('status');
+    const restaurantId = searchParams.get('restaurant_id');
+    const riderId = searchParams.get('rider_id');
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    const search = searchParams.get('search');
 
-    // Build query con joins
+    const offset = (page - 1) * limit;
+
     let query = supabase
       .from('orders')
       .select(`
-        id, code, status, restaurant_id, rider_id,
-        customer_name, customer_phone,
-        delivery_address, delivery_lat, delivery_lng, delivery_instructions,
-        items,
-        subtotal_cents, delivery_fee_cents, service_fee_cents,
-        discount_cents, total_cents, rider_bonus_cents,
-        payment_method, actual_payment_method, payment_status,
-        delivery_proof_url, payment_proof_url,
-        rejection_reason, rejection_notes,
-        customer_rating, customer_comment, source,
-        created_at, confirmed_at, restaurant_confirmed_at,
-        ready_at, assigned_at, picked_up_at, in_transit_at,
-        delivered_at, cancelled_at,
-        restaurants!inner(name),
-        riders(
-          users!inner(name)
-        )
+        id, code, status, payment_method, payment_status,
+        customer_name, customer_phone, delivery_address,
+        subtotal_cents, delivery_fee_cents, total_cents, discount_cents,
+        items, created_at, updated_at, delivered_at, cancelled_at,
+        restaurants(id, name, slug),
+        riders(id, users(name))
       `, { count: 'exact' });
 
-    // city_admin sólo ve su ciudad
-    if (profile.role === 'city_admin' && profile.city_id) {
-      query = query.eq('city_id', profile.city_id);
+    if (userData.role === 'city_admin' && userData.city_id) {
+      query = query.eq('city_id', userData.city_id);
     }
-
-    // Filtros opcionales
-    if (statusParam) {
-      const statuses = statusParam.split(',').map(s => s.trim()).filter(Boolean);
-      if (statuses.length > 0) query = query.in('status', statuses);
-    }
+    if (status) query = query.eq('status', status);
     if (restaurantId) query = query.eq('restaurant_id', restaurantId);
-    if (riderId)       query = query.eq('rider_id', riderId);
-    if (dateFrom)      query = query.gte('created_at', dateFrom);
-    if (dateTo)        query = query.lte('created_at', dateTo);
+    if (riderId) query = query.eq('rider_id', riderId);
+    if (from) query = query.gte('created_at', from);
+    if (to) query = query.lte('created_at', to);
     if (search) {
-      query = query.or(`code.ilike.%${search}%,customer_phone.ilike.%${search}%`);
+      query = query.or(
+        `code.ilike.%${search}%,customer_name.ilike.%${search}%,customer_phone.ilike.%${search}%`
+      );
     }
 
-    const { data: rows, error, count } = await query
+    const { data, error, count } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error) throw error;
-
-    // Mapear nombres de joins
-    const orders = (rows ?? []).map((row) => {
-      const r = row as Record<string, unknown>;
-      const restaurant = r.restaurants as { name: string } | null;
-      const riderJoin  = r.riders as { users: { name: string } } | null;
-      return {
-        ...row,
-        restaurant_name: restaurant?.name ?? '',
-        rider_name: riderJoin?.users?.name ?? null,
-        restaurants: undefined,
-        riders: undefined,
-      };
-    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     return NextResponse.json({
-      orders,
-      total:  count ?? 0,
+      orders: data ?? [],
+      total: count ?? 0,
       page,
       limit,
+      pages: Math.ceil((count ?? 0) / limit),
     });
-
   } catch (err) {
     console.error('[admin/orders GET]', err);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
 
+// ─── POST — crear pedido desde admin (con modificadores) ─────────────────────
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
-
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-    const { data: profile } = await supabase
+    const { data: userData } = await supabase
       .from('users')
-      .select('role')
+      .select('role, city_id')
       .eq('id', user.id)
       .single();
 
-    if (!profile || !['owner', 'city_admin', 'agent'].includes(profile.role)) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+    if (!userData || !['owner', 'city_admin', 'agent'].includes(userData.role)) {
+      return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
     }
 
-    const body = await req.json() as {
-      restaurant_id: string;
-      customer_name: string;
-      customer_phone: string;
-      delivery_address: string;
-      delivery_instructions?: string;
-      delivery_lat: number;
-      delivery_lng: number;
-      city_id: string;
-      items: {
-        item_id: string;
-        name: string;
-        quantity: number;
-        unit_price_cents: number;
-        total_cents: number;
-      }[];
-      subtotal_cents: number;
-      delivery_fee_cents: number;
-      total_cents: number;
-      payment_method: string;
-    };
+    const body: CreateOrderPayload = await req.json();
 
-    if (!body.restaurant_id || !body.customer_name || !body.customer_phone ||
-        !body.delivery_address || !body.items?.length || !body.city_id) {
+    const {
+      restaurant_id,
+      customer_name,
+      customer_phone,
+      delivery_address,
+      delivery_lat,
+      delivery_lng,
+      delivery_instructions,
+      payment_method,
+      items,
+      notes,
+      fee_is_manual,
+      fee_calculated_cents,
+    } = body;
+
+    // Validaciones básicas
+    if (!restaurant_id || !customer_name || !customer_phone || !delivery_address) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
     }
+    if (!items || items.length === 0) {
+      return NextResponse.json({ error: 'El pedido debe tener al menos un item' }, { status: 400 });
+    }
 
-    const { createClient } = await import('@supabase/supabase-js');
-    const serviceClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    // Generar código único
-    const { data: codeRow } = await serviceClient
-      .rpc('generate_order_code');
-    const code = codeRow as string;
-
-    const { data: newOrder, error } = await serviceClient
-      .from('orders')
-      .insert({
-        code,
-        city_id:               body.city_id,
-        restaurant_id:         body.restaurant_id,
-        customer_name:         body.customer_name,
-        customer_phone:        body.customer_phone.startsWith('+51')
-                                 ? body.customer_phone
-                                 : `+51${body.customer_phone}`,
-        delivery_address:      body.delivery_address,
-        delivery_instructions: body.delivery_instructions ?? null,
-        delivery_lat:          body.delivery_lat,
-        delivery_lng:          body.delivery_lng,
-        items:                 body.items,
-        subtotal_cents:        body.subtotal_cents,
-        delivery_fee_cents:    body.delivery_fee_cents,
-        service_fee_cents:     0,
-        discount_cents:        0,
-        total_cents:           body.total_cents,
-        payment_method:        body.payment_method,
-        payment_status:        'pending',
-        status:                'confirmed',
-        source:                'admin',
-        restaurant_confirmed_at: new Date().toISOString(),
-      })
-      .select('id, code')
+    // Obtener restaurante para verificar ciudad
+    const { data: restaurant } = await supabase
+      .from('restaurants')
+      .select('id, city_id, is_active, commission_percentage')
+      .eq('id', restaurant_id)
       .single();
 
-    if (error) throw error;
+    if (!restaurant || !restaurant.is_active) {
+      return NextResponse.json({ error: 'Restaurante no encontrado o inactivo' }, { status: 404 });
+    }
 
-    return NextResponse.json({ order: newOrder }, { status: 201 });
+    // Server-side: re-calcular precios desde BD
+    const itemIds = items.map((i) => i.item_id);
+    const { data: dbItems } = await supabase
+      .from('menu_items')
+      .select('id, name, base_price_cents, is_available')
+      .in('id', itemIds)
+      .eq('is_available', true);
 
+    const itemPriceMap = new Map(
+      (dbItems ?? []).map((i) => [i.id, i.base_price_cents])
+    );
+
+    // Verificar modificadores
+    const allModifierIds: string[] = [];
+    for (const item of items) {
+      for (const mod of item.modifiers ?? []) {
+        allModifierIds.push(mod.modifier_id);
+      }
+    }
+
+    let modifierPriceMap = new Map<string, number>();
+    if (allModifierIds.length > 0) {
+      const { data: dbModifiers } = await supabase
+        .from('item_modifiers')
+        .select('id, price_cents')
+        .in('id', allModifierIds);
+      modifierPriceMap = new Map(
+        (dbModifiers ?? []).map((m) => [m.id, m.price_cents])
+      );
+    }
+
+    // Re-calcular subtotal server-side
+    let subtotalCents = 0;
+    const verifiedItems = items.map((item) => {
+      const basePrice = itemPriceMap.get(item.item_id) ?? item.unit_price_cents;
+      const modifiersTotal = (item.modifiers ?? []).reduce((sum, mod) => {
+        return sum + (modifierPriceMap.get(mod.modifier_id) ?? mod.price_cents);
+      }, 0);
+      const unitPrice = basePrice + modifiersTotal;
+      const total = unitPrice * item.quantity;
+      subtotalCents += total;
+
+      return {
+        item_id: item.item_id,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price_cents: unitPrice,
+        total_cents: total,
+        modifiers: (item.modifiers ?? []).map((mod) => ({
+          modifier_id: mod.modifier_id,
+          name: mod.name,
+          price_cents: modifierPriceMap.get(mod.modifier_id) ?? mod.price_cents,
+        })),
+      };
+    });
+
+    // Calcular delivery fee desde zona
+    const { data: coverageData } = await supabase.rpc('check_coverage', {
+      p_lat: delivery_lat,
+      p_lng: delivery_lng,
+    });
+    const coverage = coverageData?.[0];
+    const deliveryFeeCents = coverage?.has_coverage
+      ? roundUpCents(coverage.base_fee_cents)
+      : 0;
+
+    // POS surcharge
+    let posSurchargeCents = 0;
+    if (payment_method === 'pos') {
+      const { data: platformSettings } = await supabase
+        .from('platform_settings')
+        .select('pos_surcharge_enabled, pos_commission_rate, pos_igv_rate')
+        .single();
+      if (platformSettings?.pos_surcharge_enabled) {
+        const { pos_commission_rate, pos_igv_rate } = platformSettings;
+        const base = subtotalCents + deliveryFeeCents;
+        posSurchargeCents = roundUpCents(
+          Math.round(base * pos_commission_rate * (1 + pos_igv_rate))
+        );
+      }
+    }
+
+    const totalCents = roundUpCents(subtotalCents + deliveryFeeCents + posSurchargeCents);
+
+    // Generar código de pedido
+    const { data: codeData } = await supabase.rpc('generate_order_code');
+    const orderCode = codeData as string;
+
+    // Crear pedido
+    const { data: newOrder, error: insertError } = await supabase
+      .from('orders')
+      .insert({
+        code: orderCode,
+        city_id: restaurant.city_id,
+        restaurant_id,
+        customer_name: customer_name.trim(),
+        customer_phone: customer_phone.trim(),
+        delivery_address: delivery_address.trim(),
+        delivery_lat,
+        delivery_lng,
+        delivery_zone_id: coverage?.zone_id ?? null,
+        delivery_instructions: delivery_instructions?.trim() ?? null,
+        items: verifiedItems,
+        subtotal_cents: subtotalCents,
+        delivery_fee_cents: deliveryFeeCents,
+        service_fee_cents: posSurchargeCents,
+        discount_cents: 0,
+        total_cents: totalCents,
+        payment_method,
+        payment_status: 'pending',
+        status: 'pending_confirmation',
+        source: 'admin',
+        notes: notes ?? null,
+        fee_is_manual: fee_is_manual ?? false,
+        fee_calculated_cents: fee_calculated_cents ?? 0,
+      })
+      .select('id, code, total_cents, status')
+      .single();
+
+    if (insertError) {
+      console.error('[admin/orders POST] Insert error:', insertError);
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    // ✅ Devolver success + datos del pedido (para tracking link en UI)
+    return NextResponse.json(
+      {
+        success: true,
+        order: {
+          id: newOrder!.id,
+          code: newOrder!.code,
+          status: newOrder!.status,
+          total_cents: newOrder!.total_cents,
+        },
+        message: 'Pedido creado exitosamente',
+      },
+      { status: 201 }
+    );
   } catch (err) {
     console.error('[admin/orders POST]', err);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });

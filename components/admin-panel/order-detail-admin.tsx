@@ -18,6 +18,12 @@ import { EvidenceViewer } from './evidence-viewer';
 import { AssignRiderModal } from './assign-rider-modal';
 import type { AdminOrder, OrderStatusHistory } from '@/types/admin-panel';
 
+// Extiende AdminOrder con campos de auditoría de tarifa (migración fee-audit)
+type AdminOrderWithFee = AdminOrder & {
+  fee_is_manual?: boolean;
+  fee_calculated_cents?: number;
+};
+
 const VALID_TRANSITIONS: Record<string, string[]> = {
   cart:                   ['awaiting_confirmation', 'cancelled'],
   awaiting_confirmation:  ['pending_confirmation', 'cancelled'],
@@ -40,7 +46,8 @@ interface OrderDetailAdminProps {
 }
 
 export function OrderDetailAdmin({ order, onClose, onRefresh }: OrderDetailAdminProps) {
-  const [detail, setDetail]     = useState<AdminOrder & { status_history?: OrderStatusHistory[]; restaurant_address?: string; restaurant_phone?: string } | null>(null);
+  const [detail, setDetail]     = useState<AdminOrder & { restaurant_address?: string; restaurant_phone?: string } | null>(null);
+  const [history, setHistory]   = useState<OrderStatusHistory[]>([]);
   const [loading, setLoading]   = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -52,8 +59,19 @@ export function OrderDetailAdmin({ order, onClose, onRefresh }: OrderDetailAdmin
     setLoading(true);
     try {
       const res  = await fetch(`/api/admin/orders/${order.id}`);
-      const data = await res.json() as AdminOrder & { status_history?: OrderStatusHistory[] };
-      setDetail(data);
+      // BUG 3 FIX: La API ahora devuelve { order, history, valid_next_statuses }
+      // en lugar de devolver el order directamente
+      const data = await res.json();
+
+      // Compatibilidad: si la respuesta tiene .order úsalo, si no asume que ES el order
+      if (data.order) {
+        setDetail(data.order);
+        setHistory(data.history ?? []);
+      } else {
+        // Respuesta vieja (retrocompatibilidad)
+        setDetail(data);
+        setHistory(data.status_history ?? data.order_status_history ?? []);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -226,7 +244,72 @@ export function OrderDetailAdmin({ order, onClose, onRefresh }: OrderDetailAdmin
                   <Section title="Desglose financiero" icon={<Clock className="w-4 h-4" />}>
                     <div className="space-y-1.5">
                       <FinRow label="Subtotal" value={d.subtotal_cents} />
-                      <FinRow label="Delivery fee" value={d.delivery_fee_cents} />
+                      {/* Delivery fee con auditoría */}
+                      <div>
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Delivery fee</span>
+                            {(d as AdminOrderWithFee).fee_is_manual && (
+                              <span
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                                style={{ background: 'rgba(245,158,11,0.15)', color: '#d97706' }}
+                              >
+                                ✏️ MANUAL
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                            {formatCurrency(d.delivery_fee_cents)}
+                          </span>
+                        </div>
+
+                        {/* Bloque auditoría — solo cuando hay fee manual y datos para comparar */}
+                        {(d as AdminOrderWithFee).fee_is_manual &&
+                         (d as AdminOrderWithFee).fee_calculated_cents != null && (
+                          <div
+                            className="mt-2 rounded-lg p-2.5 text-xs space-y-1"
+                            style={{
+                              background: (d as AdminOrderWithFee).fee_calculated_cents! > d.delivery_fee_cents
+                                ? 'rgba(239,68,68,0.07)'
+                                : 'rgba(245,158,11,0.07)',
+                              border: `1px solid ${
+                                (d as AdminOrderWithFee).fee_calculated_cents! > d.delivery_fee_cents
+                                  ? 'rgba(239,68,68,0.25)'
+                                  : 'rgba(245,158,11,0.25)'
+                              }`,
+                            }}
+                          >
+                            <p className="font-semibold text-amber-800 dark:text-amber-400">
+                              Auditoría de tarifa
+                            </p>
+                            <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                              <span>Calculado por zona:</span>
+                              <span className="font-semibold tabular-nums text-gray-700 dark:text-gray-300">
+                                {formatCurrency((d as AdminOrderWithFee).fee_calculated_cents!)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                              <span>Cobrado al cliente:</span>
+                              <span className="font-semibold tabular-nums text-gray-700 dark:text-gray-300">
+                                {formatCurrency(d.delivery_fee_cents)}
+                              </span>
+                            </div>
+                            {(d as AdminOrderWithFee).fee_calculated_cents! > d.delivery_fee_cents && (
+                              <div
+                                className="flex justify-between font-bold pt-1.5 border-t"
+                                style={{ borderColor: 'rgba(239,68,68,0.25)', color: '#dc2626' }}
+                              >
+                                <span>⚡ Pérdida para YUMI:</span>
+                                <span className="tabular-nums">
+                                  -{formatCurrency(
+                                    (d as AdminOrderWithFee).fee_calculated_cents! - d.delivery_fee_cents
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       {d.service_fee_cents > 0 && <FinRow label="Cargo de servicio" value={d.service_fee_cents} />}
                       {d.rider_bonus_cents > 0 && <FinRow label="Bonus rider" value={d.rider_bonus_cents} />}
                       {d.discount_cents > 0 && <FinRow label="Descuento" value={-d.discount_cents} negative />}
@@ -272,16 +355,40 @@ export function OrderDetailAdmin({ order, onClose, onRefresh }: OrderDetailAdmin
                             Variante: {item.variant_name}
                           </p>
                         )}
-                        {item.modifiers && item.modifiers.length > 0 && (
-                          <div className="ml-8 mt-1 space-y-0.5">
-                            {item.modifiers.map((mod, mi) => (
-                              <p key={mi} className="text-xs text-gray-400 dark:text-gray-500">
-                                + {mod.option_name}
-                                {(mod.price_cents ?? 0) > 0 && ` (${formatCurrency(mod.price_cents ?? 0)})`}
-                              </p>
-                            ))}
-                          </div>
-                        )}
+
+                        {/* BUG 2 FIX: soporte dual de formato de modificadores
+                            - Formato nuevo (admin): modifiers[].name
+                            - Formato viejo (checkout cliente): modifiers[].option_name o modifier_name */}
+                        {(() => {
+                          const rawItem = item as Record<string, unknown>;
+                          const mods = (
+                            (rawItem.modifiers as Array<Record<string, unknown>> | undefined) ??
+                            (rawItem.selected_modifiers as Array<Record<string, unknown>> | undefined) ??
+                            []
+                          );
+                          if (mods.length === 0) return null;
+                          return (
+                            <ul className="ml-8 mt-1 space-y-0.5">
+                              {mods.map((mod, mi) => {
+                                const modName =
+                                  (mod.name as string | undefined) ??
+                                  (mod.option_name as string | undefined) ??
+                                  (mod.modifier_name as string | undefined) ??
+                                  '';
+                                const modPrice = (mod.price_cents as number | undefined) ?? 0;
+                                if (!modName) return null;
+                                return (
+                                  <li key={mi} className="text-xs text-gray-400 dark:text-gray-500 flex justify-between">
+                                    <span>+ {modName}</span>
+                                    {modPrice > 0 && (
+                                      <span className="tabular-nums ml-2">+{formatCurrency(modPrice)}</span>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          );
+                        })()}
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
@@ -298,10 +405,10 @@ export function OrderDetailAdmin({ order, onClose, onRefresh }: OrderDetailAdmin
                 </div>
               )}
 
-              {/* TAB: Timeline */}
+              {/* TAB: Timeline — BUG 3 FIX: pasar history desde estado local */}
               {activeTab === 'timeline' && (
                 <div className="p-6">
-                  <OrderTimeline history={(detail as AdminOrder & { status_history?: OrderStatusHistory[] })?.status_history ?? []} />
+                  <OrderTimeline history={history} />
                 </div>
               )}
 
@@ -374,7 +481,8 @@ export function OrderDetailAdmin({ order, onClose, onRefresh }: OrderDetailAdmin
   );
 }
 
-// Helpers
+// ─── Sub-componentes ──────────────────────────────────────────────────────────
+
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
@@ -408,8 +516,10 @@ function FinRow({ label, value, negative }: { label: string; value: number; nega
     </div>
   );
 }
-// Helper: extrae precio total de un item del JSONB independientemente
-// del naming convention usado al crear el pedido (schema vs cart-store)
+
+// BUG 2 FIX: helpers con fallback dual para naming del JSONB
+// cart-store usa unit_total_cents / line_total_cents
+// schema usa unit_price_cents / total_cents
 function itemTotal(item: Record<string, unknown>): number {
   const total = (item.total_cents ?? item.line_total_cents) as number | undefined;
   if (total !== undefined && !isNaN(total)) return total;
@@ -421,5 +531,3 @@ function itemTotal(item: Record<string, unknown>): number {
 function itemUnitPrice(item: Record<string, unknown>): number {
   return ((item.unit_price_cents ?? item.unit_total_cents ?? 0) as number);
 }
-
-
