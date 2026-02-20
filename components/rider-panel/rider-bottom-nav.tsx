@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { colors } from '@/config/tokens';
+import { useRider } from '@/components/rider-panel/rider-context';
 
 const tabs = [
   {
@@ -43,17 +44,23 @@ const tabs = [
 
 export function RiderBottomNav() {
   const pathname = usePathname();
+  const { currentOrder } = useRider();
 
   const isActive = (href: string) => {
     if (href === '/rider') return pathname === '/rider';
     return pathname.startsWith(href);
   };
 
+  // Badge verde: hay pedido activo y el rider NO está en la pestaña Inicio
+  const showInicioBadge = !!currentOrder && pathname !== '/rider';
+
   return (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-100 dark:border-gray-800 z-50">
       <div className="flex items-center justify-around h-16 px-2">
         {tabs.map((tab) => {
           const active = isActive(tab.href);
+          const isInicio = tab.href === '/rider';
+
           return (
             <Link
               key={tab.href}
@@ -70,8 +77,21 @@ export function RiderBottomNav() {
                 />
               )}
 
-              <div className={`transition-colors duration-200 ${active ? '' : 'text-gray-400 dark:text-gray-500'}`}>
-                {tab.icon(active)}
+              {/* Icon + badge wrapper */}
+              <div className="relative">
+                <div className={`transition-colors duration-200 ${active ? '' : 'text-gray-400 dark:text-gray-500'}`}>
+                  {tab.icon(active)}
+                </div>
+
+                {/* Badge pedido activo — solo en Inicio cuando está en otra pestaña */}
+                {isInicio && showInicioBadge && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-900"
+                    style={{ backgroundColor: colors.semantic.success }}
+                  />
+                )}
               </div>
 
               <span

@@ -37,7 +37,7 @@ function createServiceClient() {
 // Valid status transitions for restaurant
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending_confirmation: ['confirmed', 'rejected'],
-  confirmed: ['preparing'],
+  confirmed: ['preparing', 'ready'],   // puede saltar a "listo" directamente
   preparing: ['ready'],
 };
 

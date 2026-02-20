@@ -89,8 +89,15 @@ export async function GET(
       .order('created_at', { ascending: true });
 
     // ── Enriquecer historial con nombre del usuario ───────────────────────────
+    // Para assigned_rider: mostrar nombre del rider, no del admin que asignó
+    const riderName = (order.riders as { id: string; users: { name: string } | null } | null)?.users?.name ?? null;
+
     const historyWithUsers = await Promise.all(
       (history ?? []).map(async (h) => {
+        // Evento de asignación → mostrar rider, no quien asignó
+        if (h.to_status === 'assigned_rider') {
+          return { ...h, changed_by_name: riderName, changed_by_role: 'rider' };
+        }
         if (!h.changed_by_user_id) return { ...h, changed_by_name: null };
         const { data: changedBy } = await supabase
           .from('users')
@@ -108,8 +115,24 @@ export async function GET(
     // ── Transiciones válidas ──────────────────────────────────────────────────
     const validNextStatuses = VALID_TRANSITIONS[order.status] ?? [];
 
+    // ── Mapear joins anidados a campos planos ────────────────────────────────
+    type RawRiderJoin = { id: string; users: { name: string; phone: string | null } | null } | null;
+    type RawRestJoin  = { id: string; name: string; slug: string } | null;
+
+    const riderJoin = order.riders as RawRiderJoin;
+    const restJoin  = order.restaurants as RawRestJoin;
+
+    const flatOrder = {
+      ...order,
+      restaurant_name: restJoin?.name        ?? '',
+      rider_name:      riderJoin?.users?.name  ?? null,
+      rider_phone:     riderJoin?.users?.phone ?? null,
+      riders:      undefined,
+      restaurants: undefined,
+    };
+
     return NextResponse.json({
-      order,
+      order: flatOrder,
       history: historyWithUsers,
       valid_next_statuses: validNextStatuses,
     });

@@ -29,7 +29,6 @@ interface CreateOrderPayload {
   payment_method: 'cash' | 'pos' | 'yape' | 'plin';
   items: OrderItemPayload[];
   notes?: string;
-  // Fee audit
   fee_is_manual?: boolean;
   fee_calculated_cents?: number;
 }
@@ -77,6 +76,8 @@ export async function GET(req: NextRequest) {
         customer_name, customer_phone, delivery_address,
         subtotal_cents, delivery_fee_cents, total_cents, discount_cents,
         items, created_at, updated_at, delivered_at, cancelled_at,
+        actual_payment_method, rider_bonus_cents,
+        fee_is_manual, fee_calculated_cents,
         restaurants(id, name, slug),
         riders(id, users(name))
       `, { count: 'exact' });
@@ -101,8 +102,26 @@ export async function GET(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+    // ✅ FIX: Mapear joins anidados a campos planos que espera AdminOrder
+    type RawRiderJoin = { id: string; users: { name: string } | null } | null;
+    type RawRestJoin  = { id: string; name: string; slug: string }    | null;
+
+    const orders = (data ?? []).map((order) => {
+      const riderJoin = order.riders as RawRiderJoin;
+      const restJoin  = order.restaurants as RawRestJoin;
+      return {
+        ...order,
+        restaurant_name: restJoin?.name  ?? '',
+        rider_id:        riderJoin?.id   ?? null,
+        rider_name:      riderJoin?.users?.name ?? null,
+        // Limpiar objetos anidados (no son parte del tipo AdminOrder)
+        riders:      undefined,
+        restaurants: undefined,
+      };
+    });
+
     return NextResponse.json({
-      orders: data ?? [],
+      orders,
       total: count ?? 0,
       page,
       limit,
@@ -135,21 +154,11 @@ export async function POST(req: NextRequest) {
     const body: CreateOrderPayload = await req.json();
 
     const {
-      restaurant_id,
-      customer_name,
-      customer_phone,
-      delivery_address,
-      delivery_lat,
-      delivery_lng,
-      delivery_instructions,
-      payment_method,
-      items,
-      notes,
-      fee_is_manual,
-      fee_calculated_cents,
+      restaurant_id, customer_name, customer_phone, delivery_address,
+      delivery_lat, delivery_lng, delivery_instructions, payment_method,
+      items, notes, fee_is_manual, fee_calculated_cents,
     } = body;
 
-    // Validaciones básicas
     if (!restaurant_id || !customer_name || !customer_phone || !delivery_address) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
     }
@@ -157,7 +166,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'El pedido debe tener al menos un item' }, { status: 400 });
     }
 
-    // Obtener restaurante para verificar ciudad
     const { data: restaurant } = await supabase
       .from('restaurants')
       .select('id, city_id, is_active, commission_percentage')
@@ -168,7 +176,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Restaurante no encontrado o inactivo' }, { status: 404 });
     }
 
-    // Server-side: re-calcular precios desde BD
     const itemIds = items.map((i) => i.item_id);
     const { data: dbItems } = await supabase
       .from('menu_items')
@@ -180,7 +187,6 @@ export async function POST(req: NextRequest) {
       (dbItems ?? []).map((i) => [i.id, i.base_price_cents])
     );
 
-    // Verificar modificadores
     const allModifierIds: string[] = [];
     for (const item of items) {
       for (const mod of item.modifiers ?? []) {
@@ -199,7 +205,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Re-calcular subtotal server-side
     let subtotalCents = 0;
     const verifiedItems = items.map((item) => {
       const basePrice = itemPriceMap.get(item.item_id) ?? item.unit_price_cents;
@@ -224,7 +229,6 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // Calcular delivery fee desde zona
     const { data: coverageData } = await supabase.rpc('check_coverage', {
       p_lat: delivery_lat,
       p_lng: delivery_lng,
@@ -234,7 +238,6 @@ export async function POST(req: NextRequest) {
       ? roundUpCents(coverage.base_fee_cents)
       : 0;
 
-    // POS surcharge
     let posSurchargeCents = 0;
     if (payment_method === 'pos') {
       const { data: platformSettings } = await supabase
@@ -252,11 +255,9 @@ export async function POST(req: NextRequest) {
 
     const totalCents = roundUpCents(subtotalCents + deliveryFeeCents + posSurchargeCents);
 
-    // Generar código de pedido
     const { data: codeData } = await supabase.rpc('generate_order_code');
     const orderCode = codeData as string;
 
-    // Crear pedido
     const { data: newOrder, error: insertError } = await supabase
       .from('orders')
       .insert({
@@ -292,7 +293,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    // ✅ Devolver success + datos del pedido (para tracking link en UI)
     return NextResponse.json(
       {
         success: true,
