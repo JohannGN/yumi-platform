@@ -98,6 +98,35 @@ export function RestaurantList({
     [closedList, quickFilterFn]
   );
 
+  // ── Only show pills that have ≥1 match ──
+  const allGridRestaurants = useMemo(
+    () => [...openShuffled, ...closedList],
+    [openShuffled, closedList]
+  );
+
+  const availableFilters = useMemo(() => {
+    const pills: { id: QuickFilter; label: string }[] = [];
+    const hasPopular = allGridRestaurants.some((r) => r.total_orders > 50);
+    const hasFast = allGridRestaurants.some((r) => r.estimated_prep_minutes <= 20);
+    const hasNew = allGridRestaurants.some((r) => isNewRestaurant(r.created_at));
+
+    if (hasPopular) pills.push({ id: 'popular', label: '🔥 Popular' });
+    if (hasFast) pills.push({ id: 'fast', label: '⚡ Rápido' });
+    if (hasNew) pills.push({ id: 'new', label: '✨ Nuevo' });
+
+    // Only show "Todos" if there's at least one other pill
+    if (pills.length > 0) pills.unshift({ id: 'all', label: 'Todos' });
+
+    return pills;
+  }, [allGridRestaurants]);
+
+  // Reset filter if current selection is no longer available
+  useEffect(() => {
+    if (activeFilter !== 'all' && !availableFilters.some((f) => f.id === activeFilter)) {
+      setActiveFilter('all');
+    }
+  }, [availableFilters, activeFilter]);
+
   return (
     <section className="px-4">
       <div className="mb-3">
@@ -124,15 +153,10 @@ export function RestaurantList({
         </motion.button>
       )}
 
-      {/* Quick filter pills — only when restaurants exist and not all closed */}
-      {!allClosed && (
+      {/* Quick filter pills — only when there are filters to show */}
+      {!allClosed && availableFilters.length > 0 && (
         <div className="mb-4 flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {([
-            { id: 'all' as QuickFilter, label: 'Todos' },
-            { id: 'popular' as QuickFilter, label: '🔥 Popular' },
-            { id: 'fast' as QuickFilter, label: '⚡ Rápido' },
-            { id: 'new' as QuickFilter, label: '✨ Nuevo' },
-          ]).map((filter) => (
+          {availableFilters.map((filter) => (
             <button
               key={filter.id}
               onClick={() => setActiveFilter(filter.id)}
@@ -195,32 +219,43 @@ export function RestaurantList({
         </motion.div>
       ) : (
         <AnimatePresence mode="popLayout">
-          <motion.div layout className="space-y-4">
+          <motion.div
+            key={activeFilter}
+            initial="hidden"
+            animate="visible"
+            variants={{
+              visible: { transition: { staggerChildren: 0.06 } },
+            }}
+            className="space-y-4"
+          >
             {/* Abiertos primero (aleatorio) */}
-            {filteredOpen.map((restaurant, index) => (
+            {filteredOpen.map((restaurant) => (
               <motion.div
                 key={restaurant.id}
-                layout
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: index * 0.05, duration: 0.35 }}
+                variants={{
+                  hidden: { opacity: 0, y: 16, scale: 0.97 },
+                  visible: {
+                    opacity: 1, y: 0, scale: 1,
+                    transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] },
+                  },
+                }}
               >
                 <RestaurantCard restaurant={restaurant} citySlug={citySlug} />
               </motion.div>
             ))}
             {/* Cerrados abajo */}
-            {filteredClosed.map((restaurant, index) => (
+            {filteredClosed.map((restaurant) => (
               <motion.div
                 key={restaurant.id}
-                layout
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: (filteredOpen.length + index) * 0.05, duration: 0.35 }}
+                variants={{
+                  hidden: { opacity: 0, y: 16, scale: 0.97 },
+                  visible: {
+                    opacity: 1, y: 0, scale: 1,
+                    transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] },
+                  },
+                }}
               >
                 <RestaurantCard restaurant={restaurant} citySlug={citySlug} />
-                
               </motion.div>
             ))}
           </motion.div>
