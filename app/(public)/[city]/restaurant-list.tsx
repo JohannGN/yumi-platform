@@ -48,7 +48,7 @@ export function RestaurantList({
 }: RestaurantListProps) {
   const router = useRouter();
 
-  type QuickFilter = 'all' | 'popular' | 'fast' | 'new';
+  type QuickFilter = 'all' | 'popular' | 'fast' | 'new' | 'free_delivery';
   const [activeFilter, setActiveFilter] = useState<QuickFilter>('all');
 
   const filtered = useMemo(() => {
@@ -86,6 +86,7 @@ export function RestaurantList({
     if (activeFilter === 'popular') return r.total_orders > 50;
     if (activeFilter === 'fast') return r.estimated_prep_minutes <= 20;
     if (activeFilter === 'new') return isNewRestaurant(r.created_at);
+    if (activeFilter === 'free_delivery') return r.free_delivery === true;
     return true;
   }, [activeFilter]);
 
@@ -106,10 +107,12 @@ export function RestaurantList({
 
   const availableFilters = useMemo(() => {
     const pills: { id: QuickFilter; label: string }[] = [];
+    const hasFreeDelivery = allGridRestaurants.some((r) => r.free_delivery === true);
     const hasPopular = allGridRestaurants.some((r) => r.total_orders > 50);
     const hasFast = allGridRestaurants.some((r) => r.estimated_prep_minutes <= 20);
     const hasNew = allGridRestaurants.some((r) => isNewRestaurant(r.created_at));
 
+    if (hasFreeDelivery) pills.push({ id: 'free_delivery', label: '🚚 Gratis' });
     if (hasPopular) pills.push({ id: 'popular', label: '🔥 Popular' });
     if (hasFast) pills.push({ id: 'fast', label: '⚡ Rápido' });
     if (hasNew) pills.push({ id: 'new', label: '✨ Nuevo' });
@@ -415,6 +418,15 @@ function RestaurantCard({
                   </span>
                 </>
               )}
+
+              {restaurant.free_delivery && (
+                <>
+                  <span className="h-3 w-px bg-gray-200 dark:bg-gray-700" />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/20 dark:text-green-400">
+                    🚚 Delivery gratis
+                  </span>
+                </>
+              )}
             </div>
 
             <div
@@ -517,6 +529,14 @@ function HeroRestaurantCard({
                 <>
                   <span className="h-3 w-px bg-gray-200 dark:bg-gray-700" />
                   <span>~{restaurant.estimated_prep_minutes} min</span>
+                </>
+              )}
+              {restaurant.free_delivery && (
+                <>
+                  <span className="h-3 w-px bg-gray-200 dark:bg-gray-700" />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 font-semibold text-green-600 dark:bg-green-900/20 dark:text-green-400">
+                    🚚 Delivery gratis
+                  </span>
                 </>
               )}
             </div>

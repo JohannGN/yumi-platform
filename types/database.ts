@@ -173,6 +173,8 @@ export interface Restaurant {
   updated_at: string;
   // Joined fields (optional, from queries)
   category?: Category;
+  // Computed/future fields (populated by backend when available)
+  free_delivery?: boolean;  // true = delivery fee is S/ 0.00 for this restaurant
 }
 
 export interface MenuCategory {
