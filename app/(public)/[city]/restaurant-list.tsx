@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Clock } from 'lucide-react';
 import type { Restaurant, Category } from '@/types/database';
+import { colors } from '@/config/tokens';
 import {
   getRestaurantTheme,
   getTodaySchedule,
@@ -64,13 +65,16 @@ export function RestaurantList({
 
   return (
     <section className="px-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-          {activeCat ? activeCat.name : 'Restaurantes'}
-        </h2>
-        <span className="text-xs text-gray-400 dark:text-gray-500">
-          {openShuffled.length} abierto{openShuffled.length !== 1 ? 's' : ''}
-        </span>
+      <div className="mb-3">
+        {!activeCat && <TimeGreeting />}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+            {activeCat ? activeCat.name : 'Restaurantes'}
+          </h2>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            {openShuffled.length} abierto{openShuffled.length !== 1 ? 's' : ''}
+          </span>
+        </div>
       </div>
 
       {activeCategory && activeCat && (
@@ -128,6 +132,7 @@ export function RestaurantList({
                 transition={{ delay: (openShuffled.length + index) * 0.05, duration: 0.35 }}
               >
                 <RestaurantCard restaurant={restaurant} citySlug={citySlug} />
+                
               </motion.div>
             ))}
           </motion.div>
@@ -286,5 +291,96 @@ function RestaurantCard({
         </div>
       </article>
     </Link>
+  );
+  }
+ // ── Contextual greeting based on Lima time ── (animated)
+function TimeGreeting() {
+  const [greeting, setGreeting] = useState<{ text: string; emoji: string } | null>(null);
+  const [displayText, setDisplayText] = useState('');
+  const [showCursor, setShowCursor] = useState(true);
+
+  useEffect(() => {
+    const now = new Date();
+    const limaOffset = -5 * 60;
+    const localOffset = now.getTimezoneOffset();
+    const limaTime = new Date(now.getTime() + (localOffset + limaOffset) * 60000);
+    const hour = limaTime.getHours();
+
+    let text: string;
+    let emoji: string;
+
+    if (hour >= 5 && hour < 11) {
+      text = '¿Qué desayunamos?';
+      emoji = '☀️';
+    } else if (hour >= 11 && hour < 14) {
+      text = '¡Hora del almuerzo!';
+      emoji = '🍽️';
+    } else if (hour >= 14 && hour < 18) {
+      text = '¿Se te antoja algo?';
+      emoji = '🌤️';
+    } else if (hour >= 18 && hour < 22) {
+      text = '¿Qué cenamos hoy?';
+      emoji = '🌙';
+    } else {
+      text = '¿Antojo nocturno?';
+      emoji = '🦉';
+    }
+
+    setGreeting({ text, emoji });
+
+    // Typewriter effect
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setDisplayText(text.slice(0, i));
+      if (i >= text.length) {
+        clearInterval(interval);
+        // Hide cursor after typing finishes
+        setTimeout(() => setShowCursor(false), 600);
+      }
+    }, 45);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!greeting) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className="mb-4 mt-1 flex items-center gap-2.5"
+    >
+      {/* Emoji with floating animation */}
+      <motion.span
+        className="text-xl"
+        animate={{ y: [0, -4, 0] }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          repeatType: 'loop',
+          ease: 'easeInOut',
+        }}
+      >
+        {greeting.emoji}
+      </motion.span>
+
+      {/* Typewriter text */}
+      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+        {displayText}
+        {showCursor && (
+          <motion.span
+            animate={{ opacity: [1, 0] }}
+            transition={{ duration: 0.5, repeat: Infinity, repeatType: 'reverse' }}
+            className="ml-px inline-block w-[2px] align-middle"
+            style={{
+              height: '14px',
+              backgroundColor: colors.brand.primary,
+            }}
+          />
+        )}
+      </span>
+    </motion.div>
   );
 }

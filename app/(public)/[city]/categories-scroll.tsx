@@ -6,6 +6,15 @@ import { motion } from 'framer-motion';
 import type { Category } from '@/types/database';
 import { colors } from '@/config/tokens';
 
+function shuffleArray<T>(arr: T[]): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 interface CategoriesScrollProps {
   categories: Category[];
   citySlug: string;
@@ -19,6 +28,8 @@ export function CategoriesScroll({
 }: CategoriesScrollProps) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Shuffle once on mount — gives every category a chance to appear first
+  const [shuffledCategories] = useState(() => shuffleArray(categories));
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -81,7 +92,7 @@ export function CategoriesScroll({
             cursor: isDragging ? 'grabbing' : 'grab',
           }}
         >
-          {categories.map((cat, index) => {
+          {shuffledCategories.map((cat, index) => {
             const isActive = activeCategory === cat.slug;
 
             return (

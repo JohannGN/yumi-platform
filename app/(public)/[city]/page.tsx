@@ -2,8 +2,7 @@ import { notFound } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { Header } from '@/components/shared/header';
 import { Breadcrumb } from '@/components/shared/breadcrumb';
-import { CategoriesScroll } from './categories-scroll';
-import { RestaurantList } from './restaurant-list';
+import { CityContent } from './city-content';
 import type { City, Category, Restaurant } from '@/types/database';
 
 interface CityPageProps {
@@ -52,26 +51,16 @@ export default async function CityPage({ params, searchParams }: CityPageProps) 
     <>
       <Header cityName={typedCity.name} citySlug={typedCity.slug} />
 
-      <div className="pb-8">
-        {/* Breadcrumb */}
-        <Breadcrumb items={[{ label: typedCity.name, href: `/${typedCity.slug}` }]} />
+      {/* Breadcrumb scrolls away, search bar sticks */}
+      <Breadcrumb items={[{ label: typedCity.name, href: `/${typedCity.slug}` }]} />
 
-        {/* Categories — horizontal scroll with filter */}
-        <CategoriesScroll
-          categories={categories}
-          citySlug={typedCity.slug}
-          activeCategory={categoryFilter || null}
-        />
-
-        {/* Restaurants */}
-        <RestaurantList
-          restaurants={restaurants}
-          categories={categories}
-          citySlug={typedCity.slug}
-          cityName={typedCity.name}
-          activeCategory={categoryFilter || null}
-        />
-      </div>
+      {/* Client-side orchestrator: search + categories + restaurants */}
+      <CityContent
+        city={typedCity}
+        categories={categories}
+        restaurants={restaurants}
+        activeCategory={categoryFilter || null}
+      />
     </>
   );
 }
