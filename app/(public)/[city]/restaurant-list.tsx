@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, Clock } from 'lucide-react';
+import { Star, Clock, ChevronRight } from 'lucide-react';
 import type { Restaurant, Category } from '@/types/database';
 import { colors } from '@/config/tokens';
 import {
@@ -20,6 +20,7 @@ interface RestaurantListProps {
   citySlug: string;
   cityName: string;
   activeCategory: string | null;
+  featuredRestaurantId: string | null;
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -43,6 +44,7 @@ export function RestaurantList({
   citySlug,
   cityName,
   activeCategory,
+  featuredRestaurantId,
 }: RestaurantListProps) {
   const router = useRouter();
 
@@ -51,15 +53,28 @@ export function RestaurantList({
     return restaurants.filter((r) => r.category?.slug === activeCategory);
   }, [restaurants, activeCategory]);
 
-  const { openShuffled, closedList, allClosed } = useMemo(() => {
+  const { featuredRestaurant, openShuffled, closedList, allClosed, totalOpen } = useMemo(() => {
     const open = filtered.filter((r) => r.is_open);
     const closed = filtered.filter((r) => !r.is_open);
+
+    // Extract featured from open list (only when no category filter)
+    let featured: Restaurant | null = null;
+    let openForGrid = open;
+    if (featuredRestaurantId && !activeCategory) {
+      featured = open.find((r) => r.id === featuredRestaurantId) || null;
+      if (featured) {
+        openForGrid = open.filter((r) => r.id !== featuredRestaurantId);
+      }
+    }
+
     return {
-      openShuffled: shuffleArray(open),
+      featuredRestaurant: featured,
+      openShuffled: shuffleArray(openForGrid),
       closedList: closed,
       allClosed: open.length === 0 && filtered.length > 0,
+      totalOpen: open.length,
     };
-  }, [filtered]);
+  }, [filtered, featuredRestaurantId, activeCategory]);
 
   const activeCat = categories.find((c) => c.slug === activeCategory);
 
@@ -72,7 +87,7 @@ export function RestaurantList({
             {activeCat ? activeCat.name : 'Restaurantes'}
           </h2>
           <span className="text-xs text-gray-400 dark:text-gray-500">
-            {openShuffled.length} abierto{openShuffled.length !== 1 ? 's' : ''}
+            {totalOpen} abierto{totalOpen !== 1 ? 's' : ''}
           </span>
         </div>
       </div>
@@ -87,6 +102,18 @@ export function RestaurantList({
           {activeCat.emoji} {activeCat.name}
           <span className="ml-1">✕</span>
         </motion.button>
+      )}
+
+      {/* Hero: featured restaurant of the day */}
+      {featuredRestaurant && !allClosed && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-4"
+        >
+          <HeroRestaurantCard restaurant={featuredRestaurant} citySlug={citySlug} />
+        </motion.div>
       )}
 
       {allClosed ? (
@@ -293,6 +320,131 @@ function RestaurantCard({
     </Link>
   );
   }
+
+// ── Hero card: featured restaurant of the day ──
+function HeroRestaurantCard({
+  restaurant,
+  citySlug,
+}: {
+  restaurant: Restaurant;
+  citySlug: string;
+}) {
+  const theme = getRestaurantTheme(restaurant.theme_color);
+  const hasRating = restaurant.avg_rating > 0 && restaurant.total_ratings > 0;
+
+  return (
+    <Link href={`/${citySlug}/${restaurant.slug}`} className="block">
+      <article className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg dark:border-gray-800 dark:bg-gray-900">
+        {/* Banner — taller than normal cards */}
+        <div className="relative h-48 w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+          {restaurant.banner_url && !restaurant.default_banner ? (
+            <Image
+              src={restaurant.banner_url}
+              alt={`${restaurant.name} banner`}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority
+            />
+          ) : (
+            <div
+              className="flex h-full w-full items-center justify-center"
+              style={{
+                background: `linear-gradient(135deg, ${theme.primary}30, ${theme.accent}30)`,
+              }}
+            >
+              <span className="text-6xl opacity-30">🍽️</span>
+            </div>
+          )}
+
+          {/* Gradient overlay for readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+
+          {/* Badge "Destacado hoy" */}
+          <div
+            className="absolute right-3 top-3 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold text-white shadow-md"
+            style={{ backgroundColor: colors.brand.primary }}
+          >
+            🔥 Destacado hoy
+          </div>
+
+          {/* Open badge */}
+          <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-green-500 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+            </span>
+            Abierto
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex items-center gap-3 p-4">
+          {/* Logo */}
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            {restaurant.logo_url && !restaurant.default_logo ? (
+              <Image
+                src={restaurant.logo_url}
+                alt={restaurant.name}
+                width={52}
+                height={52}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-2xl">
+                {restaurant.category?.emoji || '🍽️'}
+              </span>
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-base font-bold text-gray-800 dark:text-gray-100">
+              {restaurant.name}
+            </h3>
+            <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              {restaurant.category && (
+                <span>{restaurant.category.emoji} {restaurant.category.name}</span>
+              )}
+              {restaurant.estimated_prep_minutes > 0 && (
+                <>
+                  <span className="h-3 w-px bg-gray-200 dark:bg-gray-700" />
+                  <span>~{restaurant.estimated_prep_minutes} min</span>
+                </>
+              )}
+            </div>
+            {hasRating && (
+              <div className="mt-1.5 flex items-center gap-1">
+                <Star
+                  className="h-3.5 w-3.5"
+                  style={{ color: theme.primary, fill: theme.primary }}
+                />
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  {restaurant.avg_rating.toFixed(1)}
+                </span>
+                <span className="text-[10px] text-gray-400">
+                  ({restaurant.total_ratings})
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* CTA arrow */}
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+            style={{ backgroundColor: colors.brand.primary + '15' }}
+          >
+            <ChevronRight
+              className="h-5 w-5"
+              style={{ color: colors.brand.primary }}
+            />
+          </div>
+        </div>
+      </article>
+    </Link>
+  );
+}
+
  // ── Contextual greeting based on Lima time ── (animated)
 function TimeGreeting() {
   const [greeting, setGreeting] = useState<{ text: string; emoji: string } | null>(null);

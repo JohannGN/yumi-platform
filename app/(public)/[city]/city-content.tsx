@@ -22,6 +22,7 @@ interface CityContentProps {
   categories: Category[];
   restaurants: Restaurant[];
   activeCategory: string | null;
+  featuredRestaurantId: string | null;
 }
 
 export function CityContent({
@@ -29,6 +30,7 @@ export function CityContent({
   categories,
   restaurants,
   activeCategory,
+  featuredRestaurantId,
 }: CityContentProps) {
   const [query, setQuery] = useState('');
   const [dishResults, setDishResults] = useState<DishSearchResult[]>([]);
@@ -157,6 +159,7 @@ export function CityContent({
               citySlug={city.slug}
               cityName={city.name}
               activeCategory={activeCategory}
+              featuredRestaurantId={featuredRestaurantId}
             />
           </motion.div>
         ) : modeA ? (
@@ -183,6 +186,7 @@ export function CityContent({
               citySlug={city.slug}
               cityName={city.name}
               activeCategory={null}
+              featuredRestaurantId={null}
             />
           </motion.div>
         ) : modeB ? (
