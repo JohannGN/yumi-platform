@@ -28,8 +28,12 @@ export function CategoriesScroll({
 }: CategoriesScrollProps) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Shuffle once on mount — gives every category a chance to appear first
-  const [shuffledCategories] = useState(() => shuffleArray(categories));
+  // Start with original order (matches SSR), shuffle after mount
+  const [shuffledCategories, setShuffledCategories] = useState(categories);
+
+  useEffect(() => {
+    setShuffledCategories(shuffleArray(categories));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);

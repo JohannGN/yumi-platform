@@ -66,7 +66,7 @@ export function RestaurantList({
   return (
     <section className="px-4">
       <div className="mb-3">
-        {!activeCat && <TimeGreeting />}
+        {!activeCat && !allClosed && <TimeGreeting />}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
             {activeCat ? activeCat.name : 'Restaurantes'}

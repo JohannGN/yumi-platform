@@ -116,8 +116,8 @@ export function CityContent({
         isLoading={isLoadingDishes}
       />
 
-      {/* ── Discovery Carousel: only when idle ── */}
-      {!isSearching && (
+      {/* ── Discovery Carousel: only when idle + restaurants open ── */}
+      {!isSearching && restaurants.some((r) => r.is_open) && (
         <DiscoveryCarousel cityId={city.id} citySlug={city.slug} />
       )}
 
