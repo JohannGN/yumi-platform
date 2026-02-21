@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -48,6 +48,9 @@ export function RestaurantList({
 }: RestaurantListProps) {
   const router = useRouter();
 
+  type QuickFilter = 'all' | 'popular' | 'fast' | 'new';
+  const [activeFilter, setActiveFilter] = useState<QuickFilter>('all');
+
   const filtered = useMemo(() => {
     if (!activeCategory) return restaurants;
     return restaurants.filter((r) => r.category?.slug === activeCategory);
@@ -78,6 +81,23 @@ export function RestaurantList({
 
   const activeCat = categories.find((c) => c.slug === activeCategory);
 
+  // ── Quick filter: applied on grid only (hero unaffected) ──
+  const quickFilterFn = useCallback((r: Restaurant): boolean => {
+    if (activeFilter === 'popular') return r.total_orders > 50;
+    if (activeFilter === 'fast') return r.estimated_prep_minutes <= 20;
+    if (activeFilter === 'new') return isNewRestaurant(r.created_at);
+    return true;
+  }, [activeFilter]);
+
+  const filteredOpen = useMemo(
+    () => openShuffled.filter(quickFilterFn),
+    [openShuffled, quickFilterFn]
+  );
+  const filteredClosed = useMemo(
+    () => closedList.filter(quickFilterFn),
+    [closedList, quickFilterFn]
+  );
+
   return (
     <section className="px-4">
       <div className="mb-3">
@@ -102,6 +122,30 @@ export function RestaurantList({
           {activeCat.emoji} {activeCat.name}
           <span className="ml-1">✕</span>
         </motion.button>
+      )}
+
+      {/* Quick filter pills — only when restaurants exist and not all closed */}
+      {!allClosed && (
+        <div className="mb-4 flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {([
+            { id: 'all' as QuickFilter, label: 'Todos' },
+            { id: 'popular' as QuickFilter, label: '🔥 Popular' },
+            { id: 'fast' as QuickFilter, label: '⚡ Rápido' },
+            { id: 'new' as QuickFilter, label: '✨ Nuevo' },
+          ]).map((filter) => (
+            <button
+              key={filter.id}
+              onClick={() => setActiveFilter(filter.id)}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200 ${
+                activeFilter === filter.id
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Hero: featured restaurant of the day */}
@@ -132,11 +176,28 @@ export function RestaurantList({
           </p>
           <span className="mt-4 text-3xl">🍳</span>
         </motion.div>
+      ) : filteredOpen.length === 0 && filteredClosed.length === 0 && activeFilter !== 'all' ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex flex-col items-center py-12 text-center"
+        >
+          <span className="mb-3 text-3xl opacity-40">🔍</span>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            No hay restaurantes con este filtro
+          </p>
+          <button
+            onClick={() => setActiveFilter('all')}
+            className="mt-2 text-xs font-medium text-orange-500 hover:underline"
+          >
+            Ver todos
+          </button>
+        </motion.div>
       ) : (
         <AnimatePresence mode="popLayout">
           <motion.div layout className="space-y-4">
             {/* Abiertos primero (aleatorio) */}
-            {openShuffled.map((restaurant, index) => (
+            {filteredOpen.map((restaurant, index) => (
               <motion.div
                 key={restaurant.id}
                 layout
@@ -149,14 +210,14 @@ export function RestaurantList({
               </motion.div>
             ))}
             {/* Cerrados abajo */}
-            {closedList.map((restaurant, index) => (
+            {filteredClosed.map((restaurant, index) => (
               <motion.div
                 key={restaurant.id}
                 layout
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: (openShuffled.length + index) * 0.05, duration: 0.35 }}
+                transition={{ delay: (filteredOpen.length + index) * 0.05, duration: 0.35 }}
               >
                 <RestaurantCard restaurant={restaurant} citySlug={citySlug} />
                 
@@ -231,11 +292,22 @@ function RestaurantCard({
               <span className="text-5xl opacity-30">🍽️</span>
             </div>
           )}
+          {restaurant.total_orders > 50 && (
+            <div className="absolute left-3 top-3 rounded-full bg-orange-500/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm backdrop-blur-sm">
+              🔥 Popular
+            </div>
+          )}
           <div
-            className={`absolute right-3 top-3 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm ${
+            className={`absolute right-3 top-3 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm ${
               isOpen ? 'bg-green-500' : 'bg-gray-400'
             }`}
           >
+            {isOpen && (
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+              </span>
+            )}
             {isOpen ? 'Abierto' : 'Cerrado'}
           </div>
         </div>
