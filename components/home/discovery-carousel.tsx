@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { formatCurrency, restaurantThemes } from '@/config/tokens';
@@ -36,6 +35,8 @@ export function DiscoveryCarousel({ cityId, citySlug }: DiscoveryCarouselProps) 
   const scrollRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDraggingRef = useRef<boolean>(false);
+  const dragStartXRef = useRef<number>(0);
 
   // ── Fetch dishes ──
   useEffect(() => {
@@ -162,17 +163,23 @@ export function DiscoveryCarousel({ cityId, citySlug }: DiscoveryCarouselProps) 
         onTouchEnd={handleInteractionEnd}
         onMouseDown={(e) => {
           handleInteractionStart();
+          isDraggingRef.current = false;
+          dragStartXRef.current = e.clientX;
           const el = scrollRef.current;
           if (!el) return;
           const startX = e.pageX;
           const startScroll = el.scrollLeft;
           const onMove = (ev: MouseEvent) => {
+            if (Math.abs(ev.clientX - dragStartXRef.current) > 5) {
+              isDraggingRef.current = true;
+            }
             el.scrollLeft = startScroll - (ev.pageX - startX);
           };
           const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
             handleInteractionEnd();
+            setTimeout(() => { isDraggingRef.current = false; }, 50);
           };
           document.addEventListener('mousemove', onMove);
           document.addEventListener('mouseup', onUp);
@@ -184,6 +191,7 @@ export function DiscoveryCarousel({ cityId, citySlug }: DiscoveryCarouselProps) 
             key={`${dish.id}-${i}`}
             dish={dish}
             citySlug={citySlug}
+            isDraggingRef={isDraggingRef}
           />
         ))}
       </div>
@@ -194,16 +202,26 @@ export function DiscoveryCarousel({ cityId, citySlug }: DiscoveryCarouselProps) 
 function DishCard({
   dish,
   citySlug,
+  isDraggingRef,
 }: {
   dish: FeaturedDish;
   citySlug: string;
+  isDraggingRef: React.RefObject<boolean>;
 }) {
   const theme = restaurantThemes[dish.theme_color] || restaurantThemes.orange;
 
+  const handleClick = () => {
+    if (isDraggingRef.current) return;
+    window.location.href = `/${citySlug}/${dish.restaurant_slug}`;
+  };
+
   return (
-    <Link
-      href={`/${citySlug}/${dish.restaurant_slug}`}
-      className="block shrink-0"
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleClick(); }}
+      className="block shrink-0 cursor-pointer"
       draggable={false}
     >
       <article className="group/card w-[156px] overflow-hidden rounded-2xl border border-gray-100/80 bg-white shadow-sm transition-all duration-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
@@ -249,6 +267,6 @@ function DishCard({
           </div>
         </div>
       </article>
-    </Link>
+    </div>
   );
 }
