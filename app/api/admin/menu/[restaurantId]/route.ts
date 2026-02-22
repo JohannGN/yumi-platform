@@ -24,6 +24,13 @@ export async function GET(
       return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
     }
 
+    // FIX-6: Fetch restaurant commission_mode + commission_percentage for context
+    const { data: restaurant } = await supabase
+      .from('restaurants')
+      .select('commission_mode, commission_percentage')
+      .eq('id', restaurantId)
+      .single();
+
     // 1. Categorías del restaurante
     const { data: categories, error: catError } = await supabase
       .from('menu_categories')
@@ -37,10 +44,12 @@ export async function GET(
     }
 
     // 2. Items disponibles con variantes y grupos de modificadores
+    // FIX-6: Added commission_percentage to item select
     const { data: items, error: itemsError } = await supabase
       .from('menu_items')
       .select(`
-        id, name, description, base_price_cents, image_url, menu_category_id, display_order,
+        id, name, description, base_price_cents, image_url, menu_category_id,
+        display_order, commission_percentage,
         item_variants(id, name, price_cents, is_available, display_order),
         item_modifier_groups(
           id, name, is_required, min_selections, max_selections, display_order,
@@ -78,7 +87,13 @@ export async function GET(
         })),
     }));
 
-    return NextResponse.json({ categories: categories ?? [], items: processedItems });
+    return NextResponse.json({
+      categories: categories ?? [],
+      items: processedItems,
+      // FIX-6: Restaurant commission context for admin UI
+      commission_mode: restaurant?.commission_mode ?? 'global',
+      commission_percentage: restaurant?.commission_percentage ?? 0,
+    });
   } catch (err) {
     console.error('[admin/menu] Error:', err);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });

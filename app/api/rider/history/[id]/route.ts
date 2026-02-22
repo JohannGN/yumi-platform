@@ -34,6 +34,7 @@ export async function GET(
       return NextResponse.json({ error: 'Rider no encontrado' }, { status: 404 });
     }
 
+    // FIX-6: Added delivery_fee_cents to select (for earnings display in frontend)
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(`

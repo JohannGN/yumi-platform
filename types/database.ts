@@ -4,6 +4,7 @@
 // REGLA: Si un campo no está en el schema SQL, NO EXISTE.
 // Dinero SIEMPRE en céntimos (INTEGER con sufijo _cents).
 // ============================================================
+// FIX-6: +commission_mode en Restaurant, +commission_percentage en MenuItem
 
 // === ENUMs ===
 
@@ -46,6 +47,7 @@ export type SettlementStatus = 'pending' | 'paid' | 'disputed';
 export type VehicleType = 'motorcycle' | 'bicycle' | 'car';
 export type RiderPayType = 'fixed_salary' | 'commission';
 export type OrderSource = 'web' | 'whatsapp' | 'admin';
+export type CommissionMode = 'global' | 'per_item'; // FIX-6
 
 // === Operating Hours ===
 
@@ -158,6 +160,7 @@ export interface Restaurant {
   opening_hours: OperatingHours;
   daily_opening_time: string | null;
   commission_percentage: number;
+  commission_mode: CommissionMode; // FIX-6: 'global' | 'per_item'
   total_orders: number;
   avg_rating: number;
   total_ratings: number;
@@ -202,6 +205,7 @@ export interface MenuItem {
   stock_quantity: number | null;
   tags: string[];
   weight_kg: number | null;
+  commission_percentage: number | null; // FIX-6: NULL = usa global del restaurante
   display_order: number;
   created_at: string;
   updated_at: string;

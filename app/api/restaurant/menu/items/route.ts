@@ -2,7 +2,7 @@
 // /api/restaurant/menu/items
 // POST: create item | PATCH: update item | DELETE: delete item
 // Also handles: toggle availability via PATCH with {is_available}
-// Chat 5 — Fragment 5/7
+// Chat 5 — Fragment 5/7 | FIX-6: +commission_percentage per item
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -58,7 +58,10 @@ export async function POST(request: NextRequest) {
     if (!restaurantId) return NextResponse.json({ error: 'Sin restaurante' }, { status: 404 });
 
     const body = await request.json();
-    const { name, description, menu_category_id, base_price_cents, image_url, weight_kg, tags } = body;
+    const {
+      name, description, menu_category_id, base_price_cents, image_url,
+      weight_kg, tags, commission_percentage, // FIX-6
+    } = body;
 
     if (!name || !base_price_cents) {
       return NextResponse.json({ error: 'Nombre y precio requeridos' }, { status: 400 });
@@ -75,19 +78,27 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .single();
 
+    const insertData: Record<string, unknown> = {
+      restaurant_id: restaurantId,
+      menu_category_id: menu_category_id || null,
+      name,
+      description: description || null,
+      base_price_cents: parseInt(base_price_cents),
+      image_url: image_url || null,
+      weight_kg: weight_kg ? parseFloat(weight_kg) : null,
+      tags: tags || [],
+      display_order: (lastItem?.display_order || 0) + 1,
+    };
+
+    // FIX-6: Save commission_percentage if provided (used when commission_mode='per_item')
+    // NULL = use restaurant global fallback
+    if (commission_percentage !== undefined && commission_percentage !== null && commission_percentage !== '') {
+      insertData.commission_percentage = parseFloat(commission_percentage);
+    }
+
     const { data: item, error } = await sc
       .from('menu_items')
-      .insert({
-        restaurant_id: restaurantId,
-        menu_category_id: menu_category_id || null,
-        name,
-        description: description || null,
-        base_price_cents: parseInt(base_price_cents),
-        image_url: image_url || null,
-        weight_kg: weight_kg ? parseFloat(weight_kg) : null,
-        tags: tags || [],
-        display_order: (lastItem?.display_order || 0) + 1,
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -147,6 +158,14 @@ export async function PATCH(request: NextRequest) {
     if (fields.weight_kg !== undefined) update.weight_kg = fields.weight_kg ? parseFloat(fields.weight_kg) : null;
     if (fields.tags !== undefined) update.tags = fields.tags;
     if (fields.display_order !== undefined) update.display_order = fields.display_order;
+
+    // FIX-6: commission_percentage per item
+    // Empty string or null → NULL (fallback to restaurant global)
+    if (fields.commission_percentage !== undefined) {
+      update.commission_percentage = (fields.commission_percentage !== null && fields.commission_percentage !== '')
+        ? parseFloat(fields.commission_percentage)
+        : null;
+    }
 
     const { data: item, error } = await sc
       .from('menu_items')

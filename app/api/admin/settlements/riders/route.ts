@@ -131,13 +131,19 @@ export async function POST(request: NextRequest) {
   const bonusesCents         = deliveredOrders.reduce((s, o) => s + (o.rider_bonus_cents ?? 0), 0);
   const fuelCents            = roundUpCents(fuel_reimbursement_cents);
 
-  // ── Cálculo net_payout según pay_type ─────────────────
+  // ── FIX-6: Cálculo net_payout según pay_type ──────────
   let netPayoutCents: number;
   if (rider.pay_type === 'commission') {
-    // El efectivo ya lo tiene el rider físicamente → no lo sumamos al pago
-    netPayoutCents = deliveryFeesCents + bonusesCents + fuelCents;
+    // FIX-6: Rider commission = % of delivery_fee_cents per order (#108)
+    // Math.floor per order: YUMI keeps residuo (#122)
+    const commRate = parseFloat(String(rider.commission_percentage ?? 0)) / 100;
+    const riderCommissionCents = deliveredOrders.reduce(
+      (sum, o) => sum + Math.floor((o.delivery_fee_cents ?? 0) * commRate),
+      0
+    );
+    netPayoutCents = riderCommissionCents + bonusesCents + fuelCents;
   } else {
-    // fixed_salary
+    // fixed_salary — sin cambios
     netPayoutCents = (rider.fixed_salary_cents ?? 0) + bonusesCents + fuelCents;
   }
   netPayoutCents = Math.max(0, netPayoutCents);
@@ -151,6 +157,7 @@ export async function POST(request: NextRequest) {
     fuel_reimbursement_cents: fuelCents,
     net_payout_cents: netPayoutCents,
     pay_type: rider.pay_type,
+    commission_percentage: rider.commission_percentage, // FIX-6: expose for UI
     fixed_salary_cents: rider.fixed_salary_cents,
     has_overlap: false,
     cash_collected_cents: cashCollected,

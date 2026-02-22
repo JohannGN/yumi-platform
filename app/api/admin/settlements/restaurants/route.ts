@@ -1,6 +1,5 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { roundUpCents } from '@/lib/utils/rounding';
 
 // ─── helpers ───────────────────────────────────────────────
 async function assertAdmin(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>) {
@@ -28,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('restaurant_settlements')
-    .select('*, restaurant:restaurants(name, commission_percentage)', { count: 'exact' })
+    .select('*, restaurant:restaurants(name, commission_percentage, commission_mode)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -85,20 +84,33 @@ export async function POST(request: NextRequest) {
     }, { status: 409 });
   }
 
-  // ── Obtener comisión del restaurante ───────────────────
+  // ── FIX-6: Obtener comisión + commission_mode del restaurante ──
   const { data: restaurant, error: rErr } = await supabase
     .from('restaurants')
-    .select('name, commission_percentage')
+    .select('name, commission_percentage, commission_mode')
     .eq('id', restaurant_id)
     .single();
   if (rErr || !restaurant)
     return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 });
 
+  // ── FIX-6: Si per_item, obtener comisiones individuales de platos ──
+  let menuItemCommissions: Map<string, number | null> = new Map();
+  if (restaurant.commission_mode === 'per_item') {
+    const { data: menuItems } = await supabase
+      .from('menu_items')
+      .select('id, commission_percentage')
+      .eq('restaurant_id', restaurant_id);
+
+    for (const mi of menuItems ?? []) {
+      menuItemCommissions.set(mi.id, mi.commission_percentage);
+    }
+  }
+
   // ── Calcular desde orders ──────────────────────────────
-  // gross_sales = subtotal (solo comida, sin delivery fee)
+  // FIX-6: Added 'items' to select for per_item commission calculation
   const { data: orders, error: oErr } = await supabase
     .from('orders')
-    .select('id, code, subtotal_cents, delivery_fee_cents, total_cents, delivered_at')
+    .select('id, code, subtotal_cents, delivery_fee_cents, total_cents, delivered_at, items')
     .eq('restaurant_id', restaurant_id)
     .eq('status', 'delivered')
     .gte('delivered_at', `${period_start}T00:00:00.000Z`)
@@ -108,8 +120,33 @@ export async function POST(request: NextRequest) {
 
   const totalOrders      = orders?.length ?? 0;
   const grossSalesCents  = (orders ?? []).reduce((sum, o) => sum + (o.subtotal_cents ?? 0), 0);
-  const commissionCents  = roundUpCents(grossSalesCents * restaurant.commission_percentage / 100);
-  const netPayoutCents   = Math.max(0, grossSalesCents - commissionCents);
+
+  // ── FIX-6: Cálculo de comisión según commission_mode ──────
+  // Regla #123: YUMI abajo (Math.floor), restaurante es residuo (confianza)
+  let commissionCents: number;
+
+  if (restaurant.commission_mode === 'per_item') {
+    // Per-item: calcular comisión por cada item de cada pedido
+    commissionCents = 0;
+    for (const order of orders ?? []) {
+      const orderItems = (order.items ?? []) as Array<{
+        item_id: string;
+        total_cents: number;
+      }>;
+      for (const oi of orderItems) {
+        // Fallback: si el plato no tiene comisión propia → usa global
+        const itemRate = menuItemCommissions.get(oi.item_id) ?? restaurant.commission_percentage;
+        // Math.floor por item: YUMI abajo, restaurante es residuo (#123)
+        commissionCents += Math.floor((oi.total_cents ?? 0) * (itemRate ?? 0) / 100);
+      }
+    }
+  } else {
+    // Global: un solo % sobre todo el subtotal
+    // FIX-6: Math.floor instead of roundUpCents (#123: YUMI abajo para restaurante)
+    commissionCents = Math.floor(grossSalesCents * (restaurant.commission_percentage ?? 0) / 100);
+  }
+
+  const netPayoutCents = Math.max(0, grossSalesCents - commissionCents);
 
   const preview = {
     period_start,
@@ -118,6 +155,7 @@ export async function POST(request: NextRequest) {
     gross_sales_cents: grossSalesCents,
     commission_cents: commissionCents,
     commission_percentage: restaurant.commission_percentage,
+    commission_mode: restaurant.commission_mode, // FIX-6: expose for UI
     net_payout_cents: netPayoutCents,
     has_overlap: false,
     sample_orders: (orders ?? []).slice(0, 10).map(o => ({
@@ -144,7 +182,7 @@ export async function POST(request: NextRequest) {
       status: 'pending',
       notes: notes ?? null,
     })
-    .select('*, restaurant:restaurants(name, commission_percentage)')
+    .select('*, restaurant:restaurants(name, commission_percentage, commission_mode)')
     .single();
 
   if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 });

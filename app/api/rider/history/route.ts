@@ -65,11 +65,12 @@ export async function GET(request: NextRequest) {
     // Convert back to UTC
     const startDateUTC = new Date(startDate.getTime() - (now.getTimezoneOffset() + limaOffset) * 60000);
 
-    // Fetch orders
+    // FIX-6: Select delivery_fee_cents instead of total_cents for earnings calc
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
       .select(`
-        id, code, total_cents, payment_method, actual_payment_method,
+        id, code, total_cents, delivery_fee_cents,
+        payment_method, actual_payment_method,
         customer_rating, delivered_at, rider_bonus_cents,
         restaurant:restaurants!orders_restaurant_id_fkey(name)
       `)
@@ -95,15 +96,17 @@ export async function GET(request: NextRequest) {
         code: o.code,
         restaurant_name: restaurant?.name ?? '',
         total_cents: o.total_cents,
+        delivery_fee_cents: o.delivery_fee_cents, // FIX-6: expose for frontend
         actual_payment_method: o.actual_payment_method,
         payment_method: o.payment_method,
         customer_rating: o.customer_rating,
         delivered_at: o.delivered_at,
       };
 
-      // Earnings only if show_earnings + commission
+      // FIX-6: Earnings = commission% of delivery_fee_cents (NOT total_cents)
+      // Math.floor: YUMI keeps residuo (#108, #122)
       if (commRate !== null) {
-        result.earnings_cents = Math.round(o.total_cents * commRate) + (o.rider_bonus_cents || 0);
+        result.earnings_cents = Math.floor((o.delivery_fee_cents ?? 0) * commRate) + (o.rider_bonus_cents || 0);
       }
 
       return result;

@@ -1,5 +1,5 @@
 // ============================================================
-// YUMI – SETTLEMENT TYPES (Chat 8B)
+// YUMI – SETTLEMENT TYPES (Chat 8B + FIX-6)
 // ⚠️  Agregar el contenido de este archivo al final de:
 //     types/admin-panel.ts
 // Luego puedes eliminar este archivo e importar desde admin-panel.ts
@@ -9,7 +9,6 @@
 export type SettlementStatus = 'pending' | 'paid' | 'disputed';
 
 // Config de estilos para badges de estado
-// TODO: mover labels a config/design-tokens.ts como settlementStatusLabels
 export const SETTLEMENT_STATUS_CONFIG: Record<
   SettlementStatus,
   { label: string; className: string }
@@ -50,6 +49,7 @@ export interface RestaurantSettlement {
   restaurant?: {
     name: string;
     commission_percentage: number;
+    commission_mode: string; // FIX-6: 'global' | 'per_item'
   };
 }
 
@@ -90,6 +90,7 @@ export interface SettlementPreview {
   gross_sales_cents?: number;
   commission_cents?: number;
   commission_percentage?: number;
+  commission_mode?: string; // FIX-6
   delivery_fees_cents?: number;
   bonuses_cents?: number;
   net_payout_cents: number;

@@ -90,42 +90,45 @@ export async function GET() {
     if (rider.show_earnings && rider.pay_type === 'commission' && rider.commission_percentage) {
       const commRate = parseFloat(String(rider.commission_percentage)) / 100;
 
+      // FIX-6: Earnings = commission% of delivery_fee_cents (NOT total_cents)
+      // Math.floor per order: YUMI keeps residuo (#108, #122)
+
       // Earnings today
       const { data: todayOrders } = await supabase
         .from('orders')
-        .select('total_cents, rider_bonus_cents')
+        .select('delivery_fee_cents, rider_bonus_cents')
         .eq('rider_id', rider.id)
         .eq('status', 'delivered')
         .gte('delivered_at', todayStartUTC.toISOString());
 
       const earningsToday = (todayOrders ?? []).reduce(
-        (sum, o) => sum + Math.round(o.total_cents * commRate) + (o.rider_bonus_cents || 0),
+        (sum, o) => sum + Math.floor((o.delivery_fee_cents ?? 0) * commRate) + (o.rider_bonus_cents || 0),
         0
       );
 
       // Earnings week
       const { data: weekOrders } = await supabase
         .from('orders')
-        .select('total_cents, rider_bonus_cents')
+        .select('delivery_fee_cents, rider_bonus_cents')
         .eq('rider_id', rider.id)
         .eq('status', 'delivered')
         .gte('delivered_at', weekStartUTC.toISOString());
 
       const earningsWeek = (weekOrders ?? []).reduce(
-        (sum, o) => sum + Math.round(o.total_cents * commRate) + (o.rider_bonus_cents || 0),
+        (sum, o) => sum + Math.floor((o.delivery_fee_cents ?? 0) * commRate) + (o.rider_bonus_cents || 0),
         0
       );
 
       // Earnings month
       const { data: monthOrders } = await supabase
         .from('orders')
-        .select('total_cents, rider_bonus_cents')
+        .select('delivery_fee_cents, rider_bonus_cents')
         .eq('rider_id', rider.id)
         .eq('status', 'delivered')
         .gte('delivered_at', monthStartUTC.toISOString());
 
       const earningsMonth = (monthOrders ?? []).reduce(
-        (sum, o) => sum + Math.round(o.total_cents * commRate) + (o.rider_bonus_cents || 0),
+        (sum, o) => sum + Math.floor((o.delivery_fee_cents ?? 0) * commRate) + (o.rider_bonus_cents || 0),
         0
       );
 

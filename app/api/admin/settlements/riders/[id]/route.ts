@@ -58,9 +58,10 @@ export async function PATCH(
   if (!['owner', 'city_admin'].includes(profile.role))
     return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
 
+  // FIX-6: Added commission_percentage to rider join + fuel_reimbursement_cents to select
   const { data: existing, error: eErr } = await supabase
     .from('rider_settlements')
-    .select('id, status, paid_at, delivery_fees_cents, bonuses_cents, net_payout_cents, rider:riders(pay_type, fixed_salary_cents)')
+    .select('id, status, paid_at, delivery_fees_cents, bonuses_cents, fuel_reimbursement_cents, net_payout_cents, rider:riders(pay_type, fixed_salary_cents, commission_percentage)')
     .eq('id', id)
     .single();
 
@@ -90,13 +91,21 @@ export async function PATCH(
     const fuelCents = roundUpCents(fuel_reimbursement_cents);
     updates.fuel_reimbursement_cents = fuelCents;
 
-    const rider = existing.rider as { pay_type: string; fixed_salary_cents: number | null } | null;
+    const rider = existing.rider as {
+      pay_type: string;
+      fixed_salary_cents: number | null;
+      commission_percentage: number | null;
+    } | null;
+
     if (rider?.pay_type === 'commission') {
+      // FIX-6: Rider commission = % of delivery_fee_cents (#108)
+      // Approximate recalc: floor(total_delivery_fees * commission% / 100)
+      // Slight rounding diff vs per-order floor, acceptable for PATCH recalc
+      const commRate = parseFloat(String(rider.commission_percentage ?? 0)) / 100;
+      const riderCommissionCents = Math.floor((existing.delivery_fees_cents ?? 0) * commRate);
       updates.net_payout_cents = Math.max(
         0,
-        (existing.delivery_fees_cents ?? 0) +
-        (existing.bonuses_cents ?? 0) +
-        fuelCents
+        riderCommissionCents + (existing.bonuses_cents ?? 0) + fuelCents
       );
     } else {
       updates.net_payout_cents = Math.max(

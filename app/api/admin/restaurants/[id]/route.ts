@@ -136,6 +136,7 @@ export async function PATCH(
   const {
     name, slug, description, category_id, address, lat, lng,
     phone, whatsapp, sells_alcohol, is_active, is_open, commission_percentage,
+    commission_mode, // FIX-6: 'global' | 'per_item'
     theme_color, estimated_prep_minutes, min_order_cents, display_order,
   } = body;
 
@@ -178,6 +179,14 @@ export async function PATCH(
   if (estimated_prep_minutes !== undefined) updates.estimated_prep_minutes = parseInt(estimated_prep_minutes);
   if (min_order_cents !== undefined) updates.min_order_cents = parseInt(min_order_cents);
   if (display_order !== undefined) updates.display_order = parseInt(display_order);
+
+  // FIX-6: commission_mode — only owner/city_admin can edit (#110)
+  if (commission_mode !== undefined) {
+    if (!['global', 'per_item'].includes(commission_mode)) {
+      return NextResponse.json({ error: 'commission_mode inválido' }, { status: 400 });
+    }
+    updates.commission_mode = commission_mode;
+  }
 
   const { data: updated, error } = await supabase
     .from('restaurants')

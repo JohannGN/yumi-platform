@@ -1,10 +1,9 @@
 // ============================================================
 // YUMI PLATFORM — TYPES ADMIN PANEL
-// Versión: 2.1 (Chat 7B — Pedidos + Riders)
+// Versión: 2.2 (FIX-6 — Comisiones)
 // ============================================================
-// NOTA: Este archivo REEMPLAZA el existente types/admin-panel.ts
-// Agrega AdminOrder, AdminRider, ShiftLog, CreateRiderPayload,
-// OrderStatusHistory y EvidenceUrls al archivo original.
+// FIX-6: +commission_mode en AdminRestaurant, CreateRestaurantPayload,
+//        UpdateRestaurantPayload
 // ============================================================
 
 // ─── Tipos existentes (Chat 7A) ────────────────────────────
@@ -42,7 +41,7 @@ export interface DailyStats {
   revenue_cents: number;
 }
 
-// ─── Nuevos tipos (Chat 7B) ─────────────────────────────────
+// ─── Tipos (Chat 7B) ────────────────────────────────────────
 
 export interface AdminOrder {
   id: string;
@@ -84,7 +83,7 @@ export interface AdminOrder {
   in_transit_at: string | null;
   delivered_at: string | null;
   cancelled_at: string | null;
-  fee_is_manual: boolean;       
+  fee_is_manual: boolean;
   fee_calculated_cents: number;
 }
 
@@ -207,10 +206,51 @@ export interface ClosestRider {
   current_lng: number;
 }
 
-// ============================================================
-// YUMI — TYPES ADMIN PANEL: Adiciones Chat 7C
-// Agregar al final de types/admin-panel.ts
-// ============================================================
+// ─── Financial types (Chat 8A) ──────────────────────────────
+
+export interface FinancialSummary {
+  period: string;
+  total_revenue_cents: number;
+  delivery_fees_cents: number;
+  rider_bonuses_cents: number;
+  cash_in_field_cents: number;
+  pending_validations_count: number;
+  by_payment_method: {
+    cash_cents: number;
+    pos_cents: number;
+    yape_plin_cents: number;
+  };
+  daily_breakdown: DailyFinancialBreakdown[];
+}
+
+export interface DailyFinancialBreakdown {
+  date: string;
+  cash_cents: number;
+  pos_cents: number;
+  yape_plin_cents: number;
+  total_cents: number;
+}
+
+export interface DailyRiderReport {
+  rider_id: string;
+  rider_name: string;
+  report_id: string | null;
+  report_status: string | null;
+  shift_started_at: string | null;
+  shift_ended_at: string | null;
+  total_deliveries: number;
+  declared_cash_cents: number;
+  declared_pos_cents: number;
+  declared_yape_plin_cents: number;
+  notes: string | null;
+  expected_cash_cents: number;
+  expected_pos_cents: number;
+  expected_yape_plin_cents: number;
+  cash_discrepancy_cents: number;
+  has_discrepancy: boolean;
+}
+
+// ─── Tipos Chat 7C ──────────────────────────────────────────
 
 // === RESTAURANTES ===
 export interface AdminRestaurant {
@@ -233,6 +273,7 @@ export interface AdminRestaurant {
   is_open: boolean;
   accepts_orders: boolean;
   commission_percentage: number;
+  commission_mode: string;        // FIX-6: 'global' | 'per_item'
   theme_color: string;
   estimated_prep_minutes: number;
   min_order_cents: number;
@@ -281,6 +322,7 @@ export interface CreateRestaurantPayload {
   whatsapp?: string;
   description?: string;
   commission_percentage?: number;
+  commission_mode?: 'global' | 'per_item'; // FIX-6
   theme_color?: string;
 }
 
@@ -297,6 +339,7 @@ export interface UpdateRestaurantPayload {
   sells_alcohol?: boolean;
   is_active?: boolean;
   commission_percentage?: number;
+  commission_mode?: 'global' | 'per_item'; // FIX-6
   theme_color?: string;
   estimated_prep_minutes?: number;
   min_order_cents?: number;
@@ -414,7 +457,7 @@ export interface CreateOrderPayload {
     quantity: number;
     unit_price_cents: number;
     total_cents: number;
-    notes?: string;   
+    notes?: string;
     modifiers?: Array<{
       modifier_id: string;
       name: string;
