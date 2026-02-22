@@ -1,19 +1,19 @@
 'use client';
 
 import { useAgent } from '@/components/agent-panel/agent-context';
-import { AgentDashboard } from '@/components/agent-panel/agent-dashboard';
+import { AgentDailyFinance } from '@/components/agent-panel/agent-daily-finance';
 import { MapPin } from 'lucide-react';
 
-export default function AgentDashboardPage() {
+export default function AgentFinancePage() {
   const { activeCityId, loading } = useAgent();
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-28 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -30,11 +30,11 @@ export default function AgentDashboardPage() {
           Selecciona una ciudad
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
-          Usa el selector en la barra superior para elegir la ciudad que deseas gestionar.
+          Usa el selector en la barra superior para ver las finanzas de una ciudad.
         </p>
       </div>
     );
   }
 
-  return <AgentDashboard />;
+  return <AgentDailyFinance />;
 }

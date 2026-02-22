@@ -1,7 +1,8 @@
 'use client';
 
 import { useAgent } from '@/components/agent-panel/agent-context';
-import { MapPin, AlertTriangle } from 'lucide-react';
+import { AgentEscalationsList } from '@/components/agent-panel/agent-escalations-list';
+import { MapPin } from 'lucide-react';
 
 export default function AgentEscalationsPage() {
   const { activeCityId, cities, loading } = useAgent();
@@ -45,35 +46,7 @@ export default function AgentEscalationsPage() {
         </p>
       </div>
 
-      {/* Skeleton escalation cards */}
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4"
-          >
-            <div className="flex items-start justify-between">
-              <div className="space-y-2 flex-1">
-                <div className="h-4 w-32 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
-                <div className="h-3 w-48 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
-                <div className="h-3 w-24 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
-              </div>
-              <div className="h-6 w-16 bg-gray-100 dark:bg-gray-800 rounded-full animate-pulse" />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Construction notice */}
-      <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-xl p-6 text-center">
-        <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-        <p className="text-sm font-medium text-orange-700 dark:text-orange-300">
-          🚧 Lista de escalaciones, detalle, resolución y link Chatwoot se implementarán en AGENTE-2
-        </p>
-        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-          API <code className="bg-orange-100 dark:bg-orange-900/40 px-1 rounded">/api/agent/escalations?city_id={activeCityId}</code> ya está activa
-        </p>
-      </div>
+      <AgentEscalationsList />
     </div>
   );
 }

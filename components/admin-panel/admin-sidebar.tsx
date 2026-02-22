@@ -19,12 +19,13 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   X,
+  Headset,
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 // ============================================================
-// Props — deben coincidir exactamente con layout-client.tsx
+// Props
 // ============================================================
 interface AdminSidebarProps {
   isMobileOpen: boolean;
@@ -44,9 +45,10 @@ interface NavItem {
 // Datos de navegación
 // ============================================================
 const operationsItems: NavItem[] = [
-  { href: '/admin',         icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/admin/pedidos', icon: ShoppingBag,     label: 'Pedidos'   },
-  { href: '/admin/riders',  icon: Bike,            label: 'Riders'    },
+  { href: '/admin',          icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/admin/pedidos',  icon: ShoppingBag,     label: 'Pedidos'   },
+  { href: '/admin/riders',   icon: Bike,            label: 'Riders'    },
+  { href: '/admin/agentes',  icon: Headset,         label: 'Agentes'   },
 ];
 
 const catalogItems: NavItem[] = [
@@ -175,7 +177,7 @@ function SidebarGroup({
 }
 
 // ============================================================
-// NavContent — reutilizado en desktop y mobile
+// NavContent
 // ============================================================
 function NavContent({ collapsed, pathname, pendingCount }: { collapsed: boolean; pathname: string; pendingCount: number }) {
   const opsItems = operationsItems.map(item =>
@@ -226,7 +228,6 @@ export function AdminSidebar({
   const pathname = usePathname();
   const CollapseIcon = isCollapsed ? PanelLeftOpen : PanelLeftClose;
 
-  // Polling pedidos pendientes cada 30s
   const [pendingCount, setPendingCount] = useState(0);
 
   const fetchPending = useCallback(async () => {
@@ -250,12 +251,11 @@ export function AdminSidebar({
 
   return (
     <>
-      {/* ── DESKTOP: fixed a la izquierda ──────────────────── */}
+      {/* ── DESKTOP ── */}
       <aside
         className="hidden lg:flex flex-col fixed left-0 top-0 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-30 overflow-hidden transition-all duration-300"
         style={{ width: isCollapsed ? '64px' : '280px' }}
       >
-        {/* Header logo + botón colapsar */}
         <div
           className={[
             'flex items-center border-b border-gray-200 dark:border-gray-700 px-4 py-4 flex-shrink-0',
@@ -284,7 +284,6 @@ export function AdminSidebar({
 
         <NavContent collapsed={isCollapsed} pathname={pathname} pendingCount={pendingCount} />
 
-        {/* Configuración */}
         <div className="p-3 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
           <NavLink
             item={{ href: '/admin/configuracion', icon: Settings, label: 'Configuracion' }}
@@ -294,7 +293,7 @@ export function AdminSidebar({
         </div>
       </aside>
 
-      {/* ── MOBILE: overlay + drawer ────────────────────────── */}
+      {/* ── MOBILE ── */}
       {isMobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" onClick={onMobileClose}>
           <div className="absolute inset-0 bg-black/50" />
@@ -303,7 +302,6 @@ export function AdminSidebar({
             style={{ width: '280px' }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Header mobile */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
@@ -322,7 +320,6 @@ export function AdminSidebar({
               </button>
             </div>
 
-            {/* Mobile nav — nunca colapsado */}
             <NavContent collapsed={false} pathname={pathname} pendingCount={pendingCount} />
 
             <div className="p-3 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">

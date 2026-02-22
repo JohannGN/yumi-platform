@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   ShoppingBag,
   AlertTriangle,
+  DollarSign,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { href: '/agente',              icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/agente/pedidos',      icon: ShoppingBag,     label: 'Pedidos' },
   { href: '/agente/escalaciones', icon: AlertTriangle,   label: 'Escalaciones' },
+  { href: '/agente/finanzas',     icon: DollarSign,      label: 'Finanzas' },
 ];
 
 function isActive(href: string, pathname: string) {
