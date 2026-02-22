@@ -61,15 +61,23 @@ export default function LoginPage() {
 
       // 3. Redirigir según rol
       const role = userData.role as string;
-      if (role === 'owner' || role === 'city_admin' || role === 'agent') {
-        router.push('/admin');
-      } else if (role === 'restaurant') {
-        router.push('/restaurante');
-      } else if (role === 'rider') {
-        router.push('/rider');
-      } else {
-        await supabase.auth.signOut();
-        setError('Rol no reconocido. Contacta al administrador.');
+      switch (role) {
+        case 'owner':
+        case 'city_admin':
+          router.push('/admin');
+          break;
+        case 'agent':
+          router.push('/agente');
+          break;
+        case 'restaurant':
+          router.push('/restaurante');
+          break;
+        case 'rider':
+          router.push('/rider');
+          break;
+        default:
+          await supabase.auth.signOut();
+          setError('Rol no reconocido. Contacta al administrador.');
       }
     } catch {
       setError('Error inesperado. Intenta nuevamente.');
