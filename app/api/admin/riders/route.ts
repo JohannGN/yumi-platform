@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
+import { logAuditAction } from '@/lib/utils/audit';
 
 function createServiceClient() {
   return createClient(
@@ -28,9 +29,6 @@ export async function GET(request: NextRequest) {
     }
 
     // ── 1. Traer riders + users join ──────────────────────────────────────────
-    // NOTA: current_order_id es FK manual (sin constraint en BD), por eso
-    // NO se puede usar orders!riders_current_order_id_fkey — falla silenciosamente.
-    // Se resuelve con una segunda query.
     let query = supabase
       .from('riders')
       .select(`
@@ -82,7 +80,7 @@ export async function GET(request: NextRequest) {
         email:                 u?.email    ?? '',
         phone:                 u?.phone    ?? '',
         is_active:             u?.is_active ?? true,
-        current_order_code:    null as string | null, // se rellena abajo
+        current_order_code:    null as string | null,
       };
     });
 
@@ -212,6 +210,15 @@ export async function POST(req: NextRequest) {
       await serviceClient.auth.admin.deleteUser(newUserId);
       throw riderErr;
     }
+
+    // Audit log
+    await logAuditAction(serviceClient, {
+      userId: user.id,
+      action: 'create',
+      entityType: 'rider',
+      entityId: newRider.id,
+      details: { name: body.name, email: body.email, city_id: body.city_id, pay_type: body.pay_type ?? 'fixed_salary' },
+    });
 
     return NextResponse.json({ rider: newRider }, { status: 201 });
 

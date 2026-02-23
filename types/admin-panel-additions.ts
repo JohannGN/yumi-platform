@@ -1,6 +1,7 @@
 // ============================================================
 // ADICIONES AL ARCHIVO types/admin-panel.ts
 // Chat 8A — Monitoreo Financiero + Cierre de Caja
+// + ADMIN-FIN-3 — Usuarios + Auditoría
 // INSTRUCCION: Agregar estas interfaces al final del archivo existente
 // ============================================================
 
@@ -67,4 +68,43 @@ export interface DailyRiderReport {
 export interface ApproveDailyReportPayload {
   status: 'approved' | 'rejected';
   admin_notes?: string;
+}
+
+// === ADMIN-FIN-3 — Usuarios + Auditoría ===
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: 'owner' | 'city_admin' | 'agent' | 'restaurant' | 'rider';
+  city_id: string | null;
+  city_name: string | null;
+  is_active: boolean;
+  created_at: string;
+  // Datos extra según rol:
+  restaurant_name?: string;  // si role='restaurant'
+  vehicle_type?: string;     // si role='rider'
+  pay_type?: string;         // si role='rider'
+}
+
+export interface AuditLogEntry {
+  id: string;
+  user_id: string;
+  user_name: string;  // aplanado del join
+  action: 'create' | 'update' | 'delete' | 'toggle' | 'assign';
+  entity_type: string;
+  entity_id: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AuditLogFilters {
+  action?: string;
+  entity_type?: string;
+  user_id?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
 }

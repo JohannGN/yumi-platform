@@ -17,11 +17,11 @@ interface Liquidation {
 }
 
 interface RestaurantLiquidationHistoryProps {
-  liquidations: Liquidation[];
+  liquidations: Liquidation[] | null;
 }
 
 export function RestaurantLiquidationHistory({ liquidations }: RestaurantLiquidationHistoryProps) {
-  if (liquidations.length === 0) {
+  if (!liquidations || liquidations.length === 0) {
     return (
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
         <Banknote className="h-10 w-10 text-gray-400 mx-auto mb-3" />

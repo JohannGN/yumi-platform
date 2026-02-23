@@ -32,6 +32,11 @@ export {
   formatRechargeCode,
   getCreditStatusColor,
   getCreditStatusLabel,
+  // ADMIN-FIN-3
+  auditActionLabels,
+  userRoleLabels,
+  userRoleColors,
+  auditEntityTypeLabels,
   // Layout + animations
   layout,
   animations,

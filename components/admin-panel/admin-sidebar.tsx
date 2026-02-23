@@ -21,6 +21,9 @@ import {
   X,
   Headset,
   Coins,
+  Users,
+  ScrollText,
+  Shield,
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -65,6 +68,11 @@ const finanzasItems: NavItem[] = [
   { href: '/admin/finanzas/creditos',     icon: Coins,     label: 'Créditos'     },
   { href: '/admin/finanzas/restaurantes', icon: Store,     label: 'Restaurantes' },
   { href: '/admin/finanzas/riders',       icon: Bike,      label: 'Riders'       },
+];
+
+const sistemaItems: NavItem[] = [
+  { href: '/admin/usuarios',   icon: Users,      label: 'Usuarios'   },
+  { href: '/admin/auditoria',  icon: ScrollText, label: 'Auditoría'  },
 ];
 
 function isActive(href: string, pathname: string) {
@@ -211,6 +219,14 @@ function NavContent({ collapsed, pathname, pendingCount }: { collapsed: boolean;
         icon={DollarSign}
         label="Finanzas"
         items={finanzasItems}
+        collapsed={collapsed}
+        pathname={pathname}
+      />
+      {!collapsed && <div className="border-t border-gray-100 dark:border-gray-800" />}
+      <SidebarGroup
+        icon={Shield}
+        label="Sistema"
+        items={sistemaItems}
         collapsed={collapsed}
         pathname={pathname}
       />

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
+import { logAuditAction } from '@/lib/utils/audit';
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
@@ -160,6 +161,15 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
     if (restError) throw new Error(restError.message);
+
+    // Audit log
+    await logAuditAction(adminSupabase, {
+      userId: user.id,
+      action: 'create',
+      entityType: 'restaurant',
+      entityId: restaurant.id,
+      details: { name, slug, city_id: targetCityId, email },
+    });
 
     return NextResponse.json({ restaurant }, { status: 201 });
   } catch (error: unknown) {

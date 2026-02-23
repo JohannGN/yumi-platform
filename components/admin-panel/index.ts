@@ -1,10 +1,10 @@
 // ============================================================
 // BARREL EXPORTS — components/admin-panel/index.ts
-// Versión: ADMIN-FIN-1
+// Versión: ADMIN-FIN-3
 // ============================================================
 
 // Existentes (NO modificar)
-export * from './admin-provider';
+export * from './admin-context';
 export * from './admin-sidebar';
 export * from './admin-header';
 export * from './kpi-card';
@@ -49,6 +49,10 @@ export * from './credits-transactions-table';
 export * from './credits-adjustment-form';
 export * from './credits-recharge-viewer';
 
-// Agentes (ADMIN-FIN-1) — NUEVOS
+// Agentes (ADMIN-FIN-1)
 export * from './admin-agents-page';
 export * from './admin-agent-permissions';
+
+// Usuarios + Auditoría (ADMIN-FIN-3) — NUEVOS
+export * from './users-list-page';
+export * from './audit-log-page';

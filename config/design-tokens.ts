@@ -208,6 +208,50 @@ export const liquidationPaymentMethodLabels: Record<string, string> = {
   cash: 'Efectivo',
 };
 
+// === AUDIT ACTION LABELS ===
+export const auditActionLabels: Record<string, string> = {
+  create: 'Creación',
+  update: 'Actualización',
+  delete: 'Eliminación',
+  toggle: 'Activar/Desactivar',
+  assign: 'Asignación',
+};
+
+// === USER ROLE LABELS ===
+export const userRoleLabels: Record<string, string> = {
+  owner: 'Propietario',
+  city_admin: 'Admin Ciudad',
+  agent: 'Agente',
+  restaurant: 'Restaurante',
+  rider: 'Rider',
+};
+
+// === USER ROLE COLORS ===
+export const userRoleColors: Record<string, string> = {
+  owner: '#8B5CF6',
+  city_admin: '#3B82F6',
+  agent: '#06B6D4',
+  restaurant: '#F59E0B',
+  rider: '#22C55E',
+};
+
+// === AUDIT ENTITY TYPE LABELS ===
+export const auditEntityTypeLabels: Record<string, string> = {
+  user: 'Usuario',
+  rider: 'Rider',
+  restaurant: 'Restaurante',
+  order: 'Pedido',
+  agent_permission: 'Permiso agente',
+  agent_city: 'Ciudad agente',
+  menu_item: 'Plato',
+  category: 'Categoría',
+  city: 'Ciudad',
+  zone: 'Zona',
+  recharge_code: 'Código recarga',
+  credit_adjustment: 'Ajuste crédito',
+  liquidation: 'Liquidación',
+};
+
 // === CREDIT ALERT THRESHOLDS ===
 export const creditThresholds = {
   minimum_cents: 10000,   // S/100 — bloqueo para pedidos cash

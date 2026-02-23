@@ -14,7 +14,7 @@ interface RestaurantCreditBalanceProps {
     balance_cents: number;
     total_earned_cents: number;
     total_liquidated_cents: number;
-  };
+  } | null;
   restaurantId: string | null;
   onBalanceUpdate: () => void;
 }
@@ -52,8 +52,11 @@ export function RestaurantCreditBalance({
     };
   }, [restaurantId, onBalanceUpdate]);
 
-  const statusColor = getCreditStatusColor(credits.balance_cents);
-  const statusLabel = getCreditStatusLabel(credits.balance_cents);
+  const balance = credits?.balance_cents ?? 0;
+  const earned = credits?.total_earned_cents ?? 0;
+  const liquidated = credits?.total_liquidated_cents ?? 0;
+  const statusColor = getCreditStatusColor(balance);
+  const statusLabel = getCreditStatusLabel(balance);
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 space-y-4">
@@ -64,7 +67,7 @@ export function RestaurantCreditBalance({
           className="text-3xl font-bold tabular-nums"
           style={{ color: statusColor }}
         >
-          {formatCurrency(credits.balance_cents)}
+          {formatCurrency(balance)}
         </p>
         <span
           className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium"
@@ -86,7 +89,7 @@ export function RestaurantCreditBalance({
           <div className="min-w-0">
             <p className="text-xs text-gray-500 dark:text-gray-400">Total ganado</p>
             <p className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums truncate">
-              {formatCurrency(credits.total_earned_cents)}
+              {formatCurrency(earned)}
             </p>
           </div>
         </div>
@@ -98,7 +101,7 @@ export function RestaurantCreditBalance({
           <div className="min-w-0">
             <p className="text-xs text-gray-500 dark:text-gray-400">Total liquidado</p>
             <p className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums truncate">
-              {formatCurrency(credits.total_liquidated_cents)}
+              {formatCurrency(liquidated)}
             </p>
           </div>
         </div>
