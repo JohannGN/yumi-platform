@@ -1,6 +1,6 @@
 // ============================================================
 // BARREL EXPORTS — components/admin-panel/index.ts
-// Versión: CREDITOS-3A
+// Versión: ADMIN-FIN-1
 // ============================================================
 
 // Existentes (NO modificar)
@@ -43,8 +43,12 @@ export * from './cash-in-field-table';
 export * from './daily-reports-table';
 export * from './daily-report-detail';
 
-// Créditos (CREDITOS-3A) — NUEVOS
+// Créditos (CREDITOS-3A)
 export * from './credits-summary-cards';
 export * from './credits-transactions-table';
 export * from './credits-adjustment-form';
 export * from './credits-recharge-viewer';
+
+// Agentes (ADMIN-FIN-1) — NUEVOS
+export * from './admin-agents-page';
+export * from './admin-agent-permissions';

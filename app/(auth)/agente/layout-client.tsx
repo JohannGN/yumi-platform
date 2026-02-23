@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { AgentProvider } from '@/components/agent-panel/agent-context';
 import { AgentSidebar } from '@/components/agent-panel/agent-sidebar';
 import { AgentHeader } from '@/components/agent-panel/agent-header';
+import { CreditsAlertBanner } from '@/components/agent-panel/credits-alert-banner';
 
 export function AgentLayoutClient({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -52,6 +53,8 @@ export function AgentLayoutClient({ children }: { children: React.ReactNode }) {
             isDark={isDark}
             onToggleTheme={toggleTheme}
           />
+          {/* ADMIN-FIN-1: Alerta persistente de créditos bajos */}
+          <CreditsAlertBanner />
           <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6">
             {children}
           </main>
