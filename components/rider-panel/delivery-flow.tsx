@@ -8,6 +8,7 @@ import { CashCalculator } from './cash-calculator';
 import { QrDisplay } from './qr-display';
 import { PosPhoto } from './pos-photo';
 import { PhotoCapture } from './photo-capture';
+import { DeliveryBreakdown } from './delivery-breakdown';
 import { formatCurrency, formatOrderCode, colors, paymentMethodLabels } from '@/config/tokens';
 import type { RiderCurrentOrder, PaymentMethodType, DeliveryFlowStep } from '@/types/rider-panel';
 
@@ -17,7 +18,7 @@ interface DeliveryFlowProps {
 }
 
 export function DeliveryFlow({ order, onClose }: DeliveryFlowProps) {
-  const { refetchOrder, refetchRider, setCurrentOrder } = useRider();
+  const { rider, refetchOrder, refetchRider, setCurrentOrder } = useRider();
 
   // Flow state
   const [step, setStep] = useState<DeliveryFlowStep>('confirm_payment');
@@ -29,6 +30,9 @@ export function DeliveryFlow({ order, onClose }: DeliveryFlowProps) {
   const [deliveryProofUrl, setDeliveryProofUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // CREDITOS-2A: Breakdown state
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   // === Step handlers ===
 
@@ -99,7 +103,14 @@ export function DeliveryFlow({ order, onClose }: DeliveryFlowProps) {
         return;
       }
 
-      setStep('success');
+      // CREDITOS-2A: Show breakdown for commission riders before success
+      if (rider?.pay_type === 'commission') {
+        setStep('success');
+        setShowBreakdown(true);
+      } else {
+        setStep('success');
+      }
+
       await refetchRider();
     } catch {
       setError('Error de conexión');
@@ -156,7 +167,7 @@ export function DeliveryFlow({ order, onClose }: DeliveryFlowProps) {
 
       {/* Error toast */}
       <AnimatePresence>
-        {error && (
+        {error ? (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -165,7 +176,7 @@ export function DeliveryFlow({ order, onClose }: DeliveryFlowProps) {
           >
             <p className="text-xs text-red-600 dark:text-red-400 font-medium">{error}</p>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
 
       {/* Steps */}
@@ -283,6 +294,20 @@ export function DeliveryFlow({ order, onClose }: DeliveryFlowProps) {
           />
         )}
       </AnimatePresence>
+
+      {/* CREDITOS-2A: Delivery breakdown sheet — shown after successful delivery */}
+      {showBreakdown && step === 'success' && (
+        <DeliveryBreakdown
+          orderCode={order.code}
+          restaurantName={order.restaurant_name}
+          totalCents={order.total_cents}
+          subtotalCents={order.subtotal_cents}
+          deliveryFeeCents={order.delivery_fee_cents}
+          paymentMethod={selectedPayment}
+          isCommission={rider?.pay_type === 'commission'}
+          onClose={() => setShowBreakdown(false)}
+        />
+      )}
     </div>
   );
 }

@@ -6,6 +6,9 @@ import { WaitingState } from '@/components/rider-panel/waiting-state';
 import { ActiveOrderCard } from '@/components/rider-panel/active-order-card';
 import { OrderStatusActions } from '@/components/rider-panel/order-status-actions';
 import { DeliveryFlow } from '@/components/rider-panel/delivery-flow';
+import { CreditBalanceWidget } from '@/components/rider-panel/credit-balance-widget';
+import { LowBalanceAlert } from '@/components/rider-panel/low-balance-alert';
+import { ShiftCreditSummary } from '@/components/rider-panel/shift-credit-summary';
 import { useRiderLocation } from '@/hooks/use-rider-location';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -46,45 +49,57 @@ export default function RiderDashboardPage() {
   }
 
   return (
-    <AnimatePresence mode="wait">
-      {currentOrder ? (
-        <motion.div
-          key="active-order"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          {/* Order loading overlay */}
-          {isOrderLoading && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/50 dark:bg-gray-900/50">
-              <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+    <>
+      {/* CREDITOS-2A: Low balance alert — always visible at top */}
+      <LowBalanceAlert />
+
+      <AnimatePresence mode="wait">
+        {currentOrder ? (
+          <motion.div
+            key="active-order"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* Order loading overlay */}
+            {isOrderLoading && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/50 dark:bg-gray-900/50">
+                <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+
+            {/* Active order details */}
+            <ActiveOrderCard
+              order={currentOrder}
+              onNavigateRestaurant={handleNavigateRestaurant}
+              onNavigateClient={handleNavigateClient}
+            />
+
+            {/* Action buttons */}
+            <OrderStatusActions
+              order={currentOrder}
+              onStartDeliveryFlow={() => setShowDeliveryFlow(true)}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="waiting"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex flex-col gap-4"
+          >
+            <WaitingState />
+
+            {/* CREDITOS-2A: Credit widgets — only when no active order */}
+            <div className="flex flex-col gap-3 px-4 -mt-1 pb-4">
+              <CreditBalanceWidget />
+              <ShiftCreditSummary />
             </div>
-          )}
-
-          {/* Active order details */}
-          <ActiveOrderCard
-            order={currentOrder}
-            onNavigateRestaurant={handleNavigateRestaurant}
-            onNavigateClient={handleNavigateClient}
-          />
-
-          {/* Action buttons */}
-          <OrderStatusActions
-            order={currentOrder}
-            onStartDeliveryFlow={() => setShowDeliveryFlow(true)}
-          />
-        </motion.div>
-      ) : (
-        <motion.div
-          key="waiting"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <WaitingState />
-        </motion.div>
-      )}
-    </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -112,6 +127,17 @@ function DashboardSkeleton() {
             <div className="w-20 h-3 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
           </div>
         ))}
+      </div>
+
+      {/* Credit widget skeleton */}
+      <div className="rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-4">
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <div className="w-20 h-3 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="w-32 h-7 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
+          <div className="w-24 h-5 bg-gray-100 dark:bg-gray-700 rounded-full animate-pulse" />
+        </div>
       </div>
 
       {/* WhatsApp skeleton */}

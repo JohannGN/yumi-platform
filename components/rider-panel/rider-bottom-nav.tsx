@@ -3,8 +3,9 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { colors } from '@/config/tokens';
+import { colors, getCreditStatusColor, creditThresholds } from '@/config/tokens';
 import { useRider } from '@/components/rider-panel/rider-context';
+import { useRiderCredits } from '@/hooks/use-rider-credits';
 
 const tabs = [
   {
@@ -44,7 +45,7 @@ const tabs = [
 
 export function RiderBottomNav() {
   const pathname = usePathname();
-  const { currentOrder } = useRider();
+  const { rider, currentOrder } = useRider();
 
   const isActive = (href: string) => {
     if (href === '/rider') return pathname === '/rider';
@@ -53,6 +54,9 @@ export function RiderBottomNav() {
 
   // Badge verde: hay pedido activo y el rider NO está en la pestaña Inicio
   const showInicioBadge = !!currentOrder && pathname !== '/rider';
+
+  // #117: Solo mostrar badge de créditos si es commission
+  const isCommission = rider?.pay_type === 'commission';
 
   return (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-100 dark:border-gray-800 z-50">
@@ -92,6 +96,11 @@ export function RiderBottomNav() {
                     style={{ backgroundColor: colors.semantic.success }}
                   />
                 )}
+
+                {/* CREDITOS-2A: Badge créditos en Inicio */}
+                {isInicio && isCommission && !showInicioBadge && (
+                  <CreditNavBadge riderId={rider?.id ?? null} />
+                )}
               </div>
 
               <span
@@ -111,5 +120,24 @@ export function RiderBottomNav() {
       {/* Safe area padding for iOS */}
       <div className="h-[env(safe-area-inset-bottom,0px)]" />
     </nav>
+  );
+}
+
+// === CREDITOS-2A: Credit status badge ===
+function CreditNavBadge({ riderId }: { riderId: string | null }) {
+  const { data } = useRiderCredits(riderId, true);
+
+  // Don't show badge if healthy or loading
+  if (!data || data.balance_cents >= creditThresholds.healthy_cents) return null;
+
+  const dotColor = getCreditStatusColor(data.balance_cents);
+
+  return (
+    <motion.div
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-900"
+      style={{ backgroundColor: dotColor }}
+    />
   );
 }
