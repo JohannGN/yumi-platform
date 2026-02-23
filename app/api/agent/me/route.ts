@@ -1,5 +1,11 @@
+// ============================================================
+// GET /api/agent/me — Perfil del agente + permisos
+// Chat: AGENTE-1 + AGENTE-3 (added permissions)
+// ============================================================
+
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { getAgentPermissions } from '@/lib/agent-permissions';
 
 const AGENT_ROLES = ['owner', 'city_admin', 'agent'];
 
@@ -85,6 +91,9 @@ export async function GET() {
       }
     }
 
+    // AGENTE-3: Fetch permissions
+    const permissions = await getAgentPermissions(user.id, userData.role);
+
     return NextResponse.json({
       id: userData.id,
       name: userData.name,
@@ -93,6 +102,7 @@ export async function GET() {
       avatar_url: userData.avatar_url,
       role: userData.role,
       assigned_cities: assignedCities,
+      permissions,
     });
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });

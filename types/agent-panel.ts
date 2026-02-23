@@ -1,9 +1,24 @@
 // ============================================================
 // YUMI PLATFORM — Agent Panel Types
-// Chat: AGENTE-1
+// Chat: AGENTE-1 + AGENTE-3
 // ============================================================
 
-// Contexto del agente autenticado
+// ─── Permissions ────────────────────────────────────────────
+
+export interface AgentPermissions {
+  can_cancel_orders: boolean;
+  can_toggle_restaurants: boolean;
+  can_manage_menu_global: boolean;
+  can_disable_menu_items: boolean;
+  can_view_riders: boolean;
+  can_create_orders: boolean;
+  can_manage_escalations: boolean;
+  can_view_finance_daily: boolean;
+  can_view_finance_weekly: boolean;
+}
+
+// ─── Context / Profile ──────────────────────────────────────
+
 export interface AgentProfile {
   id: string;
   name: string;
@@ -12,6 +27,7 @@ export interface AgentProfile {
   avatar_url: string | null;
   role: string;
   assigned_cities: AgentCity[];
+  permissions: AgentPermissions; // AGENTE-3: added
 }
 
 export interface AgentCity {
@@ -21,7 +37,8 @@ export interface AgentCity {
   is_active: boolean;
 }
 
-// Pedido simplificado para vista agente
+// ─── Orders ─────────────────────────────────────────────────
+
 export interface AgentOrder {
   id: string;
   code: string;
@@ -111,7 +128,8 @@ export interface AgentCreateOrderPayload {
   notes?: string;
 }
 
-// Escalación
+// ─── Escalations ────────────────────────────────────────────
+
 export interface AgentEscalation {
   id: string;
   customer_phone: string;
@@ -148,3 +166,86 @@ export interface PaginatedResponse<T> {
   per_page: number;
   total_pages: number;
 }
+
+// ─── AGENTE-3: Restaurants ──────────────────────────────────
+
+export interface AgentRestaurant {
+  id: string;
+  name: string;
+  slug: string;
+  category_name: string;
+  is_open: boolean;
+  is_active: boolean;
+  accepts_orders: boolean;
+  commission_mode: 'global' | 'per_item';
+  phone: string | null;
+  whatsapp: string | null;
+  opening_hours: Record<string, { open: string; close: string; closed: boolean }>;
+  should_be_open: boolean;
+  alert: boolean;
+  total_orders: number;
+  estimated_prep_minutes: number;
+}
+
+// ─── AGENTE-3: Riders ───────────────────────────────────────
+
+export interface AgentRider {
+  id: string;
+  user_id: string;
+  name: string;
+  phone: string;
+  vehicle_type: string;
+  is_online: boolean;
+  is_available: boolean;
+  current_lat: number | null;
+  current_lng: number | null;
+  last_location_update: string | null;
+  current_order_id: string | null;
+  current_order_code: string | null;
+  current_order_status: string | null;
+  pay_type: string;
+  total_deliveries: number;
+  avg_rating: number;
+}
+
+// ─── AGENTE-3: Menu Item Audit ──────────────────────────────
+
+export interface MenuItemAuditEntry {
+  id: string;
+  menu_item_id: string;
+  menu_item_name: string;
+  action: string;
+  changed_by_name: string;
+  changed_by_role: string;
+  source: string;
+  old_value: string | null;
+  new_value: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+// ─── AGENTE-3: Permission labels ────────────────────────────
+
+export const agentPermissionLabels: Record<keyof AgentPermissions, string> = {
+  can_cancel_orders: 'Cancelar pedidos',
+  can_toggle_restaurants: 'Abrir/cerrar restaurantes',
+  can_manage_menu_global: 'Crear platos (restaurantes comisión global)',
+  can_disable_menu_items: 'Apagar/encender platos',
+  can_view_riders: 'Ver riders y ubicación',
+  can_create_orders: 'Crear pedidos manuales',
+  can_manage_escalations: 'Gestionar escalaciones',
+  can_view_finance_daily: 'Ver finanzas diarias',
+  can_view_finance_weekly: 'Ver finanzas semanales',
+};
+
+export const agentPermissionDescriptions: Record<keyof AgentPermissions, string> = {
+  can_cancel_orders: 'Puede cancelar pedidos activos y liberar al rider',
+  can_toggle_restaurants: 'Puede abrir o cerrar restaurantes remotamente',
+  can_manage_menu_global: 'Puede crear platos nuevos en restaurantes con comisión global',
+  can_disable_menu_items: 'Puede desactivar o activar platos de cualquier restaurante',
+  can_view_riders: 'Puede ver la lista y ubicación GPS de riders conectados',
+  can_create_orders: 'Puede crear pedidos manuales para clientes',
+  can_manage_escalations: 'Puede gestionar y resolver escalaciones de soporte',
+  can_view_finance_daily: 'Puede ver el resumen financiero del día',
+  can_view_finance_weekly: 'Puede ver el resumen financiero semanal',
+};

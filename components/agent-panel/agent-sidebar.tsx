@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
+  Store,
   ShoppingBag,
+  MapPin,
   AlertTriangle,
   DollarSign,
   PanelLeftClose,
@@ -25,9 +27,12 @@ interface NavItem {
   label: string;
 }
 
+// AGENTE-3: 6 items (added Restaurantes + Riders)
 const navItems: NavItem[] = [
   { href: '/agente',              icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/agente/restaurantes', icon: Store,           label: 'Restaurantes' },
   { href: '/agente/pedidos',      icon: ShoppingBag,     label: 'Pedidos' },
+  { href: '/agente/riders',       icon: MapPin,          label: 'Riders' },
   { href: '/agente/escalaciones', icon: AlertTriangle,   label: 'Escalaciones' },
   { href: '/agente/finanzas',     icon: DollarSign,      label: 'Finanzas' },
 ];

@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { AdminAgentPermissions } from '@/components/admin-panel/admin-agent-permissions';
 import {
   Headset,
   Building2,
   Plus,
   X,
-  Loader2,
   AlertCircle,
   CheckCircle2,
   ToggleLeft,
   ToggleRight,
   RefreshCw,
+  Shield
 } from 'lucide-react';
 
 interface AgentItem {
@@ -33,6 +34,7 @@ export function AdminAgentsPage() {
   const [cities, setCities] = useState<CityOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<AgentItem | null>(null);
+  const [permissionsAgent, setPermissionsAgent] = useState<AgentItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -247,12 +249,21 @@ export function AdminAgentsPage() {
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setSelectedAgent(agent)}
-                      className="text-xs font-medium text-orange-600 dark:text-orange-400 hover:underline"
-                    >
-                      Editar ciudades
-                    </button>
+                    <div className="flex items-center gap-2 justify-end">
+                      <button
+                        onClick={() => setPermissionsAgent(agent)}
+                        className="flex items-center gap-1 text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline"
+                      >
+                        <Shield className="w-3 h-3" />
+                        Permisos
+                      </button>
+                      <button
+                        onClick={() => setSelectedAgent(agent)}
+                        className="text-xs font-medium text-orange-600 dark:text-orange-400 hover:underline"
+                      >
+                        Editar ciudades
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -313,6 +324,14 @@ export function AdminAgentsPage() {
             </div>
           </div>
         </div>
+      ) : null}
+      {/* Permissions modal */}
+      {permissionsAgent ? (
+        <AdminAgentPermissions
+          agentId={permissionsAgent.id}
+          agentName={permissionsAgent.name}
+          onClose={() => setPermissionsAgent(null)}
+        />
       ) : null}
     </div>
   );

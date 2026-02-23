@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import type { AgentProfile, AgentCity } from '@/types/agent-panel';
+import type { AgentProfile, AgentCity, AgentPermissions } from '@/types/agent-panel';
 
 interface AgentContextValue {
   agent: AgentProfile | null;
@@ -18,7 +18,22 @@ interface AgentContextValue {
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+  // AGENTE-3: Permissions
+  permissions: AgentPermissions | null;
+  hasPermission: (key: keyof AgentPermissions) => boolean;
 }
+
+const DEFAULT_PERMISSIONS: AgentPermissions = {
+  can_cancel_orders: true,
+  can_toggle_restaurants: true,
+  can_manage_menu_global: true,
+  can_disable_menu_items: true,
+  can_view_riders: true,
+  can_create_orders: true,
+  can_manage_escalations: true,
+  can_view_finance_daily: true,
+  can_view_finance_weekly: true,
+};
 
 const AgentContext = createContext<AgentContextValue>({
   agent: null,
@@ -28,6 +43,8 @@ const AgentContext = createContext<AgentContextValue>({
   loading: true,
   error: null,
   refetch: async () => {},
+  permissions: null,
+  hasPermission: () => false,
 });
 
 const STORAGE_KEY = 'yumi_agent_city';
@@ -54,14 +71,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       const cities = data.assigned_cities;
 
       if (cities.length === 1) {
-        // Only one city → auto-select
         setActiveCityIdState(cities[0].city_id);
         localStorage.setItem(STORAGE_KEY, cities[0].city_id);
       } else if (storedCity && cities.some((c) => c.city_id === storedCity)) {
-        // Stored city still valid
         setActiveCityIdState(storedCity);
       } else if (cities.length > 0) {
-        // Multiple cities, no valid stored → leave null (force selection)
         setActiveCityIdState(null);
       }
     } catch (err) {
@@ -80,6 +94,20 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, id);
   }
 
+  // AGENTE-3: Permissions from agent profile
+  const permissions = agent?.permissions ?? null;
+
+  const hasPermission = useCallback(
+    (key: keyof AgentPermissions): boolean => {
+      if (!agent) return false;
+      // Owner and city_admin always have all permissions
+      if (agent.role === 'owner' || agent.role === 'city_admin') return true;
+      const perms = agent.permissions ?? DEFAULT_PERMISSIONS;
+      return perms[key] === true;
+    },
+    [agent]
+  );
+
   return (
     <AgentContext.Provider
       value={{
@@ -90,6 +118,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         loading,
         error,
         refetch: fetchAgent,
+        permissions,
+        hasPermission,
       }}
     >
       {children}

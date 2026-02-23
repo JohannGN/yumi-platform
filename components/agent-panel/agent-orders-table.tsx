@@ -29,7 +29,9 @@ import {
   FileText,
   User,
   Loader2,
+  Ban, // AGENTE-3
 } from 'lucide-react';
+import { AgentOrderCancelDialog } from '@/components/agent-panel/agent-order-cancel-dialog'; // AGENTE-3
 
 // ─── Status config ───────────────────────────────────────────────────────────
 
@@ -46,6 +48,16 @@ const ALL_STATUSES = [
   'rejected',
   'cancelled',
 ] as const;
+
+// AGENTE-3: Estados en los que un pedido puede ser cancelado por agente
+const CANCELLABLE_STATUSES = [
+  'awaiting_confirmation',
+  'pending_confirmation',
+  'confirmed',
+  'preparing',
+  'ready',
+  'assigned_rider',
+];
 
 // ─── StatusBadge ─────────────────────────────────────────────────────────────
 
@@ -242,7 +254,7 @@ function TableSkeleton() {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function AgentOrdersTable() {
-  const { activeCityId } = useAgent();
+  const { activeCityId, hasPermission } = useAgent(); // AGENTE-3: + hasPermission
   const [allOrders, setAllOrders] = useState<AgentOrder[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -254,6 +266,10 @@ export function AgentOrdersTable() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const limit = 50;
+
+  // AGENTE-3: Cancel dialog state
+  const [cancelOrder, setCancelOrder] = useState<{ id: string; code: string; status: string } | null>(null);
+  const canCancel = hasPermission('can_cancel_orders');
 
   // ─── Fetch ───────────────────────────────────────────────────────────────
 
@@ -557,13 +573,27 @@ export function AgentOrdersTable() {
                         </span>
                       </td>
 
-                      {/* Expand indicator */}
+                      {/* AGENTE-3: Actions (cancel + expand) */}
                       <td className="px-3 py-3">
-                        {isExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        )}
+                        <div className="flex items-center gap-1">
+                          {canCancel && CANCELLABLE_STATUSES.includes(order.status) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCancelOrder({ id: order.id, code: order.code, status: order.status });
+                              }}
+                              className="h-7 w-7 flex items-center justify-center rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              title="Cancelar pedido"
+                            >
+                              <Ban className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          )}
+                        </div>
                       </td>
                     </tr>
 
@@ -638,6 +668,20 @@ export function AgentOrdersTable() {
           )}
         </div>
       )}
+
+      {/* AGENTE-3: Cancel dialog */}
+      {cancelOrder ? (
+        <AgentOrderCancelDialog
+          orderId={cancelOrder.id}
+          orderCode={formatOrderCode(cancelOrder.code)}
+          orderStatus={cancelOrder.status}
+          onCancel={() => {
+            setCancelOrder(null);
+            fetchOrders();
+          }}
+          onClose={() => setCancelOrder(null)}
+        />
+      ) : null}
     </div>
   );
 }
