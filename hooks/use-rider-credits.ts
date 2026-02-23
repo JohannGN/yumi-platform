@@ -27,6 +27,25 @@ interface UseRiderCreditsReturn {
   refetch: () => Promise<void>;
 }
 
+/** Ensure all numeric fields default to 0 to prevent NaN in formatCurrency */
+function normalizeCreditsData(json: Record<string, unknown>): RiderCreditsData {
+  const shift = (json.shift_summary ?? {}) as Record<string, unknown>;
+  return {
+    balance_cents: Number(json.balance_cents) || 0,
+    status: (json.status as CreditHealthStatus) ?? 'blocked',
+    can_receive_cash_orders: Boolean(json.can_receive_cash_orders),
+    shift_summary: {
+      deliveries: Number(shift.deliveries) || 0,
+      total_food_debit_cents: Number(shift.total_food_debit_cents) || 0,
+      total_commission_debit_cents: Number(shift.total_commission_debit_cents) || 0,
+      total_earned_delivery_cents: Number(shift.total_earned_delivery_cents) || 0,
+      cash_collected_cents: Number(shift.cash_collected_cents) || 0,
+      digital_collected_cents: Number(shift.digital_collected_cents) || 0,
+    },
+    recent_transactions: Array.isArray(json.recent_transactions) ? json.recent_transactions : [],
+  };
+}
+
 /**
  * Hook centralizado para créditos del rider.
  * - Fetch inicial desde GET /api/rider/credits
@@ -55,9 +74,9 @@ export function useRiderCredits(riderId: string | null, enabled: boolean): UseRi
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Error al cargar créditos');
       }
-      const json: RiderCreditsData = await res.json();
+      const json = await res.json();
       if (isMounted.current) {
-        setData(json);
+        setData(normalizeCreditsData(json));
         setError(null);
       }
     } catch (err) {
@@ -94,11 +113,10 @@ export function useRiderCredits(riderId: string | null, enabled: boolean): UseRi
           filter: `rider_id=eq.${riderId}`,
         },
         (payload) => {
-          const newRow = payload.new as { balance_cents: number };
+          const newRow = payload.new as { balance_cents?: number };
+          const balance = Number(newRow.balance_cents) || 0;
           setData((prev) => {
             if (!prev) return prev;
-            // Actualizar saldo + recalcular status
-            const balance = newRow.balance_cents;
             let status: CreditHealthStatus;
             if (balance >= 15000) status = 'healthy';
             else if (balance >= 10000) status = 'warning';
@@ -128,7 +146,6 @@ export function useRiderCredits(riderId: string | null, enabled: boolean): UseRi
           filter: `entity_id=eq.${riderId}`,
         },
         () => {
-          // Refetch para obtener shift_summary actualizado
           fetchCredits();
         }
       )

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAgent } from '@/components/agent-panel/agent-context';
+import { CreditsDashboardWidget } from '@/components/agent-panel/credits';
 import {
   orderStatusLabels,
   escalationPriorityLabels,
@@ -78,7 +79,7 @@ function StatusDot({ status }: { status: string }) {
 }
 
 export function AgentDashboard() {
-  const { activeCityId, agent, cities } = useAgent();
+  const { activeCityId, agent, cities, hasPermission } = useAgent();
   const router = useRouter();
   const activeCity = cities.find((c) => c.city_id === activeCityId);
 
@@ -166,6 +167,7 @@ export function AgentDashboard() {
         <KPICard icon={AlertTriangle} label="Escalaciones" value={kpis.pendingEscalations} color="#EF4444" loading={loading} />
       </div>
 
+      {/* Credits Widget + Lists */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Active Orders */}
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -262,6 +264,11 @@ export function AgentDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Credits Dashboard Widget — solo si tiene permiso financiero */}
+      {hasPermission('can_view_finance_daily') && (
+        <CreditsDashboardWidget />
+      )}
     </div>
   );
 }

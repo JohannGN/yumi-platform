@@ -20,6 +20,19 @@ export {
   escalationPriorityLabels,
   vehicleTypeLabels,
   riderPayTypeLabels,
+  // FIX-6
+  commissionModeLabels,
+  // CREDITOS-1A
+  creditTransactionTypeLabels,
+  rechargeCodeStatusLabels,
+  liquidationPaymentMethodLabels,
+  creditThresholds,
+  creditStatusColors,
+  formatCredits,
+  formatRechargeCode,
+  getCreditStatusColor,
+  getCreditStatusLabel,
+  // Layout + animations
   layout,
   animations,
   keyframes,

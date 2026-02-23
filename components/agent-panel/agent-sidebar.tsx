@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAgent } from '@/components/agent-panel/agent-context';
 import {
   LayoutDashboard,
   Store,
@@ -9,6 +10,7 @@ import {
   MapPin,
   AlertTriangle,
   DollarSign,
+  Coins,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -28,7 +30,7 @@ interface NavItem {
 }
 
 // AGENTE-3: 6 items (added Restaurantes + Riders)
-const navItems: NavItem[] = [
+const baseNavItems: NavItem[] = [
   { href: '/agente',              icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/agente/restaurantes', icon: Store,           label: 'Restaurantes' },
   { href: '/agente/pedidos',      icon: ShoppingBag,     label: 'Pedidos' },
@@ -36,6 +38,13 @@ const navItems: NavItem[] = [
   { href: '/agente/escalaciones', icon: AlertTriangle,   label: 'Escalaciones' },
   { href: '/agente/finanzas',     icon: DollarSign,      label: 'Finanzas' },
 ];
+
+// CREDITOS-2B-1: Créditos (permission-gated)
+const creditosNavItem: NavItem = {
+  href: '/agente/creditos',
+  icon: Coins,
+  label: 'Créditos',
+};
 
 function isActive(href: string, pathname: string) {
   if (href === '/agente') return pathname === '/agente';
@@ -71,6 +80,14 @@ function NavLink({
 }
 
 function NavContent({ collapsed, pathname }: { collapsed: boolean; pathname: string }) {
+  const { hasPermission } = useAgent();
+
+  // Build nav items dynamically based on permissions
+  const navItems = [...baseNavItems];
+  if (hasPermission('can_view_finance_daily')) {
+    navItems.push(creditosNavItem);
+  }
+
   return (
     <nav className="flex-1 overflow-y-auto p-3 space-y-1">
       {navItems.map((item) => (
