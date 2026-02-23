@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Calendar } from 'lucide-react';
 import { DailyReportsTable } from '@/components/admin-panel/daily-reports-table';
 import { DailyReportDetail } from '@/components/admin-panel/daily-report-detail';
+import { DeprecationBanner } from '@/components/shared/deprecation-banner';
 import type { DailyRiderReport } from '@/types/admin-panel';
 
 export default function CajaDiariaPage() {
@@ -65,6 +66,15 @@ export default function CajaDiariaPage() {
             className="sr-only"
           />
         </button>
+      </div>
+
+      {/* ── Deprecation Banner (CREDITOS-3B) ──────────────── */}
+      <div className="px-6 pt-4">
+        <DeprecationBanner
+          message="Los cierres de caja ahora se gestionan desde el módulo de créditos."
+          targetLabel="Finanzas → Créditos"
+          targetHref="/admin/finanzas/creditos"
+        />
       </div>
 
       {/* ── Split layout ─────────────────────────────────────── */}

@@ -13,3 +13,8 @@ export {
   RestaurantBottomNav,
   RestaurantMobileHeader,
 } from './restaurant-sidebar';
+
+// ─── Credits (CREDITOS-3B) ──────────────────────────────────
+export { RestaurantCreditBalance } from './restaurant-credit-balance';
+export { RestaurantCreditTransactions } from './restaurant-credit-transactions';
+export { RestaurantLiquidationHistory } from './restaurant-liquidation-history';

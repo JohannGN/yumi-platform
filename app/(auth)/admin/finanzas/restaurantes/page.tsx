@@ -6,6 +6,7 @@ import { RestaurantSettlementDetail } from '@/components/admin-panel/restaurant-
 import { CreateSettlementForm } from '@/components/admin-panel/create-settlement-form';
 import { RestaurantSettlement } from '@/types/settlement-types';
 import { createClient } from '@/lib/supabase/client';
+import { DeprecationBanner } from '@/components/shared/deprecation-banner';
 
 // ─── Filter Bar ─────────────────────────────────────────────
 interface Filters {
@@ -158,62 +159,73 @@ export default function RestaurantSettlementsPage() {
   };
 
   return (
-    // Edge-to-edge split layout — cancela el padding del <main>
-    <div className="-m-4 lg:-m-6 h-[calc(100%+2rem)] lg:h-[calc(100%+3rem)] flex overflow-hidden bg-white dark:bg-gray-900">
-      {/* ─── Left Panel ─────────────────────────────────── */}
-      <div className="w-2/5 flex flex-col border-r border-gray-200 dark:border-gray-700 shrink-0">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <div>
-            <h1 className="text-sm font-bold text-gray-900 dark:text-gray-100">
-              Liquidaciones · Restaurantes
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{total} registros</p>
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="rounded-lg bg-orange-500 hover:bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
-          >
-            + Nueva
-          </button>
-        </div>
-
-        {/* Filters */}
-        <FilterBar filters={filters} onChange={handleFilterChange} restaurants={restaurants} />
-
-        {/* List */}
-        <div className="flex-1 overflow-y-auto">
-          <SettlementsTable
-            type="restaurant"
-            settlements={settlements}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            loading={loading}
-          />
-        </div>
+    <div className="flex flex-col h-full">
+      {/* ─── Deprecation Banner (CREDITOS-3B) ─────────────── */}
+      <div className="px-4 pt-3">
+        <DeprecationBanner
+          message="Esta vista usa el modelo de liquidaciones de restaurantes anterior."
+          targetLabel="Finanzas → Créditos"
+          targetHref="/admin/finanzas/creditos"
+        />
       </div>
 
-      {/* ─── Right Panel ────────────────────────────────── */}
-      <div className="flex-1 min-w-0 relative">
-        {selectedId ? (
-          <RestaurantSettlementDetail
-            key={selectedId}
-            settlementId={selectedId}
-            onUpdate={handleUpdate}
+      {/* ─── Split Layout ───────────────────────────────────── */}
+      <div className="-mx-4 lg:-mx-6 -mb-4 lg:-mb-6 flex-1 flex overflow-hidden bg-white dark:bg-gray-900">
+        {/* ─── Left Panel ─────────────────────────────────── */}
+        <div className="w-2/5 flex flex-col border-r border-gray-200 dark:border-gray-700 shrink-0">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div>
+              <h1 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                Liquidaciones · Restaurantes
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{total} registros</p>
+            </div>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="rounded-lg bg-orange-500 hover:bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+            >
+              + Nueva
+            </button>
+          </div>
+
+          {/* Filters */}
+          <FilterBar filters={filters} onChange={handleFilterChange} restaurants={restaurants} />
+
+          {/* List */}
+          <div className="flex-1 overflow-y-auto">
+            <SettlementsTable
+              type="restaurant"
+              settlements={settlements}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              loading={loading}
+            />
+          </div>
+        </div>
+
+        {/* ─── Right Panel ────────────────────────────────── */}
+        <div className="flex-1 min-w-0 relative">
+          {selectedId ? (
+            <RestaurantSettlementDetail
+              key={selectedId}
+              settlementId={selectedId}
+              onUpdate={handleUpdate}
+            />
+          ) : (
+            <EmptyDetail onNew={() => setShowCreate(true)} />
+          )}
+        </div>
+
+        {/* ─── Create Modal ───────────────────────────────── */}
+        {showCreate && (
+          <CreateSettlementForm
+            type="restaurant"
+            onSuccess={s => handleCreated(s as RestaurantSettlement)}
+            onClose={() => setShowCreate(false)}
           />
-        ) : (
-          <EmptyDetail onNew={() => setShowCreate(true)} />
         )}
       </div>
-
-      {/* ─── Create Modal ───────────────────────────────── */}
-      {showCreate && (
-        <CreateSettlementForm
-          type="restaurant"
-          onSuccess={s => handleCreated(s as RestaurantSettlement)}
-          onClose={() => setShowCreate(false)}
-        />
-      )}
     </div>
   );
 }
