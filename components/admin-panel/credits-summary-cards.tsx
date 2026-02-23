@@ -90,24 +90,29 @@ export function CreditsSummaryCards() {
     );
   }
 
-  const alertCount = data.riders.count_critical + data.riders.count_warning;
+  // Null-safe destructure — API may return partial data if no riders/restaurants exist
+  const riders = data.riders ?? { total_balance_cents: 0, count_commission: 0, count_critical: 0, count_warning: 0, count_healthy: 0 };
+  const restaurants = data.restaurants ?? { total_balance_cents: 0, count_total: 0 };
+  const codes = data.recharge_codes ?? { pending_count: 0, pending_amount_cents: 0 };
+
+  const alertCount = (riders.count_critical ?? 0) + (riders.count_warning ?? 0);
 
   const cards: KpiCardData[] = [
     {
       title: 'Saldo total riders',
-      value: formatCurrency(data.riders.total_balance_cents),
+      value: formatCurrency(riders.total_balance_cents),
       icon: Bike,
       iconBg: 'bg-blue-100 dark:bg-blue-900/30',
       iconColor: 'text-blue-600 dark:text-blue-400',
-      subtitle: `${data.riders.count_commission} riders por comisión`,
+      subtitle: `${riders.count_commission} riders por comisión`,
     },
     {
       title: 'Saldo total restaurantes',
-      value: formatCurrency(data.restaurants.total_balance_cents),
+      value: formatCurrency(restaurants.total_balance_cents),
       icon: Store,
       iconBg: 'bg-green-100 dark:bg-green-900/30',
       iconColor: 'text-green-600 dark:text-green-400',
-      subtitle: `${data.restaurants.count_total} restaurantes`,
+      subtitle: `${restaurants.count_total} restaurantes`,
     },
     {
       title: 'Riders en alerta',
@@ -120,22 +125,22 @@ export function CreditsSummaryCards() {
         ? 'text-red-600 dark:text-red-400'
         : 'text-gray-400',
       subtitle: alertCount > 0
-        ? `${data.riders.count_critical} crítico, ${data.riders.count_warning} bajo`
+        ? `${riders.count_critical} crítico, ${riders.count_warning} bajo`
         : 'Todos con saldo saludable',
       highlight: alertCount > 0,
     },
     {
       title: 'Códigos pendientes',
-      value: String(data.recharge_codes.pending_count),
+      value: String(codes.pending_count),
       icon: TicketCheck,
-      iconBg: data.recharge_codes.pending_count > 0
+      iconBg: codes.pending_count > 0
         ? 'bg-orange-100 dark:bg-orange-900/30'
         : 'bg-gray-100 dark:bg-gray-700',
-      iconColor: data.recharge_codes.pending_count > 0
+      iconColor: codes.pending_count > 0
         ? 'text-orange-600 dark:text-orange-400'
         : 'text-gray-400',
-      subtitle: data.recharge_codes.pending_count > 0
-        ? `${formatCurrency(data.recharge_codes.pending_amount_cents)} por canjear`
+      subtitle: codes.pending_count > 0
+        ? `${formatCurrency(codes.pending_amount_cents)} por canjear`
         : 'Sin códigos pendientes',
     },
   ];
@@ -198,31 +203,31 @@ export function CreditsSummaryCards() {
             {alertCount} rider{alertCount > 1 ? 's' : ''} con saldo insuficiente
           </p>
           <div className="flex gap-3 mt-2">
-            {data.riders.count_critical > 0 && (
+            {riders.count_critical > 0 && (
               <span
                 className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full"
                 style={{ backgroundColor: `${creditStatusColors.critical}20`, color: creditStatusColors.critical }}
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: creditStatusColors.critical }} />
-                {data.riders.count_critical} crítico{data.riders.count_critical > 1 ? 's' : ''}
+                {riders.count_critical} crítico{riders.count_critical > 1 ? 's' : ''}
               </span>
             )}
-            {data.riders.count_warning > 0 && (
+            {riders.count_warning > 0 && (
               <span
                 className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full"
                 style={{ backgroundColor: `${creditStatusColors.warning}20`, color: creditStatusColors.warning }}
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: creditStatusColors.warning }} />
-                {data.riders.count_warning} bajo{data.riders.count_warning > 1 ? 's' : ''}
+                {riders.count_warning} bajo{riders.count_warning > 1 ? 's' : ''}
               </span>
             )}
-            {data.riders.count_healthy > 0 && (
+            {riders.count_healthy > 0 && (
               <span
                 className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full"
                 style={{ backgroundColor: `${creditStatusColors.healthy}20`, color: creditStatusColors.healthy }}
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: creditStatusColors.healthy }} />
-                {data.riders.count_healthy} saludable{data.riders.count_healthy > 1 ? 's' : ''}
+                {riders.count_healthy} saludable{riders.count_healthy > 1 ? 's' : ''}
               </span>
             )}
           </div>

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAgent } from '@/components/agent-panel/agent-context';
 import { CreditsDashboardWidget } from '@/components/agent-panel/credits';
+import { DateRangePicker } from '@/components/shared/date-range-picker';
+import type { DateRange } from '@/components/shared/date-range-picker';
 import {
   orderStatusLabels,
   escalationPriorityLabels,
@@ -37,6 +39,14 @@ const ACTIVE_STATUSES = [
   'awaiting_confirmation', 'pending_confirmation', 'confirmed',
   'preparing', 'ready', 'assigned_rider', 'picked_up', 'in_transit',
 ];
+
+function todayISO(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 function KPICard({
   icon: Icon,
@@ -83,8 +93,15 @@ export function AgentDashboard() {
   const router = useRouter();
   const activeCity = cities.find((c) => c.city_id === activeCityId);
 
+  // ADMIN-FIN-2: DateRangePicker state
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: todayISO(),
+    to: todayISO(),
+  });
+
   const [kpis, setKPIs] = useState<DashboardKPIs>({ ordersToday: 0, activeOrders: 0, deliveredToday: 0, pendingEscalations: 0 });
   const [recentOrders, setRecentOrders] = useState<AgentOrder[]>([]);
+  const [allFetchedOrders, setAllFetchedOrders] = useState<AgentOrder[]>([]);
   const [pendingEscalations, setPendingEscalations] = useState<AgentEscalation[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -100,25 +117,7 @@ export function AgentDashboard() {
       const escRes = await fetch(`/api/agent/escalations?city_id=${activeCityId}&status=pending`);
       const escData: AgentEscalation[] = escRes.ok ? await escRes.json() : [];
 
-      // Calculate KPIs from orders
-      const today = new Date().toLocaleDateString('en-US', { timeZone: 'America/Lima' });
-      const todayOrders = ordersData.data.filter((o) => {
-        const orderDate = new Date(o.created_at).toLocaleDateString('en-US', { timeZone: 'America/Lima' });
-        return orderDate === today;
-      });
-
-      const activeOrders = ordersData.data.filter((o) => ACTIVE_STATUSES.includes(o.status));
-      const deliveredToday = todayOrders.filter((o) => o.status === 'delivered');
-
-      setKPIs({
-        ordersToday: todayOrders.length,
-        activeOrders: activeOrders.length,
-        deliveredToday: deliveredToday.length,
-        pendingEscalations: escData.length,
-      });
-
-      // Last 5 active orders
-      setRecentOrders(activeOrders.slice(0, 5));
+      setAllFetchedOrders(ordersData.data ?? []);
       setPendingEscalations(escData.slice(0, 5));
       setLastRefresh(new Date());
     } catch {
@@ -135,6 +134,34 @@ export function AgentDashboard() {
     return () => clearInterval(interval);
   }, [fetchDashboard]);
 
+  // ADMIN-FIN-2: Calculate KPIs filtered by dateRange
+  useMemo(() => {
+    const fromDate = new Date(`${dateRange.from}T00:00:00`);
+    const toDate = new Date(`${dateRange.to}T23:59:59`);
+
+    const rangeOrders = allFetchedOrders.filter((o) => {
+      const orderDate = new Date(o.created_at);
+      return orderDate >= fromDate && orderDate <= toDate;
+    });
+
+    const activeOrders = allFetchedOrders.filter((o) => ACTIVE_STATUSES.includes(o.status));
+    const deliveredRange = rangeOrders.filter((o) => o.status === 'delivered');
+
+    setKPIs({
+      ordersToday: rangeOrders.length,
+      activeOrders: activeOrders.length,
+      deliveredToday: deliveredRange.length,
+      pendingEscalations: pendingEscalations.length,
+    });
+
+    // Last 5 active orders
+    setRecentOrders(activeOrders.slice(0, 5));
+  }, [allFetchedOrders, dateRange, pendingEscalations.length]);
+
+  // Determine KPI labels based on date range
+  const isToday = dateRange.from === todayISO() && dateRange.to === todayISO();
+  const periodLabel = isToday ? 'hoy' : 'período';
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -146,6 +173,8 @@ export function AgentDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* ADMIN-FIN-2: DateRangePicker */}
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
           <span className="text-[10px] text-gray-400 hidden sm:inline">
             {formatTime(lastRefresh)}
           </span>
@@ -161,9 +190,9 @@ export function AgentDashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard icon={ShoppingBag} label="Pedidos hoy" value={kpis.ordersToday} color="#3B82F6" loading={loading} />
+        <KPICard icon={ShoppingBag} label={`Pedidos ${periodLabel}`} value={kpis.ordersToday} color="#3B82F6" loading={loading} />
         <KPICard icon={TrendingUp} label="Activos ahora" value={kpis.activeOrders} color="#F59E0B" loading={loading} />
-        <KPICard icon={CheckCircle2} label="Entregados hoy" value={kpis.deliveredToday} color="#22C55E" loading={loading} />
+        <KPICard icon={CheckCircle2} label={`Entregados ${periodLabel}`} value={kpis.deliveredToday} color="#22C55E" loading={loading} />
         <KPICard icon={AlertTriangle} label="Escalaciones" value={kpis.pendingEscalations} color="#EF4444" loading={loading} />
       </div>
 

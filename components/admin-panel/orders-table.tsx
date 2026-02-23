@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronLeft, ChevronRight, Eye, User } from 'lucide-react';
+import { ExportCSVButton } from '@/components/shared/export-csv-button';
 import {
   colors,
   orderStatusLabels,
@@ -10,10 +11,9 @@ import {
   formatOrderCode,
   formatPhone,
 } from '@/config/tokens';
-import type { AdminOrder } from '@/types/admin-panel';
+import type { AdminOrder, AdminOrderFilters } from '@/types/admin-panel';
 
 // Extiende AdminOrder con campos de auditoría de tarifa (migración fee-audit)
-// Mientras no estén en la interfaz base, usamos este tipo local
 type AdminOrderWithFee = AdminOrder & {
   fee_is_manual?: boolean;
   fee_calculated_cents?: number;
@@ -27,6 +27,7 @@ interface OrdersTableProps {
   loading: boolean;
   onPageChange: (page: number) => void;
   onOrderClick: (order: AdminOrder) => void;
+  filters?: AdminOrderFilters; // ADMIN-FIN-2: for CSV export params
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -77,14 +78,33 @@ function SkeletonRow({ idx }: { idx: number }) {
 }
 
 export function OrdersTable({
-  orders, total, page, limit, loading, onPageChange, onOrderClick,
+  orders, total, page, limit, loading, onPageChange, onOrderClick, filters,
 }: OrdersTableProps) {
   const totalPages = Math.ceil(total / limit);
   const start = (page - 1) * limit + 1;
   const end   = Math.min(page * limit, total);
 
+  // ADMIN-FIN-2: Build export params from current filters
+  const exportParams: Record<string, string> = {};
+  if (filters?.date_from) exportParams.from = filters.date_from;
+  if (filters?.date_to) exportParams.to = filters.date_to;
+  if (filters?.status?.length === 1) exportParams.status = filters.status[0];
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
+      {/* ADMIN-FIN-2: Export header */}
+      {total > 0 && !loading && (
+        <div className="flex items-center justify-end px-6 py-2 border-b border-gray-100 dark:border-gray-800">
+          <ExportCSVButton
+            mode="server"
+            endpoint="/api/admin/export/orders"
+            params={exportParams}
+            filenamePrefix="pedidos"
+            label="Exportar pedidos"
+          />
+        </div>
+      )}
+
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-sm">
@@ -105,7 +125,7 @@ export function OrdersTable({
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {loading
-              ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
+              ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} idx={i} />)
               : orders.length === 0
               ? (
                 <tr>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Package,
   TrendingUp,
@@ -13,78 +13,74 @@ import {
 } from 'lucide-react';
 import { KpiCard } from '@/components/admin-panel/kpi-card';
 import { StatsChart } from '@/components/admin-panel/stats-chart';
+import { DateRangePicker } from '@/components/shared/date-range-picker';
+import type { DateRange } from '@/components/shared/date-range-picker';
 import { colors, formatCurrency } from '@/config/tokens';
-import type { AdminStats, DailyStats, StatsPeriod } from '@/types/admin-panel';
+import type { AdminStats, DailyStats } from '@/types/admin-panel';
 
-const PERIODS: { value: StatsPeriod; label: string }[] = [
-  { value: 'today', label: 'Hoy' },
-  { value: 'week', label: '7 días' },
-  { value: 'month', label: '30 días' },
-];
+function todayISO(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 export default function AdminDashboardPage() {
-  const [period, setPeriod] = useState<StatsPeriod>('today');
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: todayISO(),
+    to: todayISO(),
+  });
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [chartData, setChartData] = useState<DailyStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isChartLoading, setIsChartLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadStats() {
-      setIsLoading(true);
-      try {
-        const res = await fetch(`/api/admin/stats?period=${period}`);
-        if (res.ok) {
-          const data = await res.json() as AdminStats;
-          setStats(data);
-        }
-      } finally {
-        setIsLoading(false);
+  const loadStats = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        from: dateRange.from,
+        to: dateRange.to,
+      });
+      const res = await fetch(`/api/admin/stats?${params}`);
+      if (res.ok) {
+        const data = await res.json() as AdminStats;
+        setStats(data);
       }
+    } finally {
+      setIsLoading(false);
     }
-    loadStats();
-  }, [period]);
+  }, [dateRange]);
 
-  useEffect(() => {
-    async function loadChart() {
-      setIsChartLoading(true);
-      try {
-        const days = period === 'today' ? 7 : period === 'week' ? 7 : 30;
-        const res = await fetch(`/api/admin/stats/daily?days=${days}`);
-        if (res.ok) {
-          const data = await res.json() as DailyStats[];
-          setChartData(data);
-        }
-      } finally {
-        setIsChartLoading(false);
+  const loadChart = useCallback(async () => {
+    setIsChartLoading(true);
+    try {
+      // Calculate days between from and to for chart granularity
+      const fromDate = new Date(dateRange.from);
+      const toDate = new Date(dateRange.to);
+      const diffDays = Math.max(7, Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+      const res = await fetch(`/api/admin/stats/daily?days=${Math.min(diffDays, 30)}`);
+      if (res.ok) {
+        const data = await res.json() as DailyStats[];
+        setChartData(data);
       }
+    } finally {
+      setIsChartLoading(false);
     }
-    loadChart();
-  }, [period]);
+  }, [dateRange]);
+
+  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => { loadChart(); }, [loadChart]);
 
   return (
     <div className="space-y-6">
-      {/* Period selector */}
+      {/* Header with DateRangePicker */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">Resumen del negocio</h2>
         </div>
-        <div className="flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-1 gap-1">
-          {PERIODS.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => setPeriod(value)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                period === value
-                  ? 'text-white shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-              }`}
-              style={period === value ? { backgroundColor: colors.brand.primary } : {}}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
       {/* KPI Grid */}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ExportCSVButton } from '@/components/shared/export-csv-button';
 import {
   formatCurrency,
   formatDate,
@@ -94,6 +95,11 @@ export function CreditsTransactionsTable() {
 
   const pagination = data?.pagination;
 
+  // ADMIN-FIN-2: Build export params
+  const exportParams: Record<string, string> = {};
+  if (entityType) exportParams.entity_type = entityType;
+  if (transactionType) exportParams.transaction_type = transactionType;
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
       {/* Filters */}
@@ -116,11 +122,22 @@ export function CreditsTransactionsTable() {
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
-        {pagination && (
-          <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
-            {pagination.total} transacciones
-          </span>
-        )}
+
+        {/* ADMIN-FIN-2: Export button + count pushed right */}
+        <div className="ml-auto flex items-center gap-3">
+          {pagination && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {pagination.total} transacciones
+            </span>
+          )}
+          <ExportCSVButton
+            mode="server"
+            endpoint="/api/admin/export/transactions"
+            params={exportParams}
+            filenamePrefix="transacciones"
+            label="Exportar"
+          />
+        </div>
       </div>
 
       {/* Table */}

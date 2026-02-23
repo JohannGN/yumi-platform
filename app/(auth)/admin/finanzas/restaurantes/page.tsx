@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { SettlementsTable } from '@/components/admin-panel/settlements-table';
 import { RestaurantSettlementDetail } from '@/components/admin-panel/restaurant-settlement-detail';
 import { CreateSettlementForm } from '@/components/admin-panel/create-settlement-form';
+import { ExportCSVButton } from '@/components/shared/export-csv-button';
 import { RestaurantSettlement } from '@/types/settlement-types';
 import { createClient } from '@/lib/supabase/client';
 import { DeprecationBanner } from '@/components/shared/deprecation-banner';
@@ -158,6 +159,10 @@ export default function RestaurantSettlementsPage() {
     setShowCreate(false);
   };
 
+  // ADMIN-FIN-2: Build export params from filters
+  const exportParams: Record<string, string> = {};
+  if (filters.restaurant_id) exportParams.restaurant_id = filters.restaurant_id;
+
   return (
     <div className="flex flex-col h-full">
       {/* ─── Deprecation Banner (CREDITOS-3B) ─────────────── */}
@@ -181,12 +186,22 @@ export default function RestaurantSettlementsPage() {
               </h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">{total} registros</p>
             </div>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="rounded-lg bg-orange-500 hover:bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
-            >
-              + Nueva
-            </button>
+            <div className="flex items-center gap-2">
+              {/* ADMIN-FIN-2: Export CSV */}
+              <ExportCSVButton
+                mode="server"
+                endpoint="/api/admin/export/liquidations"
+                params={exportParams}
+                filenamePrefix="liquidaciones"
+                label="CSV"
+              />
+              <button
+                onClick={() => setShowCreate(true)}
+                className="rounded-lg bg-orange-500 hover:bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+              >
+                + Nueva
+              </button>
+            </div>
           </div>
 
           {/* Filters */}

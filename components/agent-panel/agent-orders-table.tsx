@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { useAgent } from '@/components/agent-panel/agent-context';
+import { ExportCSVButton } from '@/components/shared/export-csv-button';
 import {
   orderStatusLabels,
   paymentMethodLabels,
@@ -12,6 +13,7 @@ import {
   formatPhone,
   colors,
 } from '@/config/design-tokens';
+import { formatCentsForExport, formatDateForExport } from '@/lib/utils/export-csv';
 import type { AgentOrder, PaginatedResponse } from '@/types/agent-panel';
 import {
   ChevronLeft,
@@ -339,6 +341,25 @@ export function AgentOrdersTable() {
 
   const totalPages = Math.ceil(filteredOrders.length / limit);
 
+  // ─── ADMIN-FIN-2: CSV export rows ───────────────────────────────────────
+  const csvHeaders = ['Código', 'Fecha', 'Restaurante', 'Cliente', 'Teléfono', 'Estado', 'Pago', 'Subtotal', 'Delivery', 'Total', 'Rider'];
+  const csvRows = useMemo(() =>
+    filteredOrders.map((o) => [
+      o.code,
+      formatDateForExport(o.created_at),
+      o.restaurant_name ?? '',
+      o.customer_name,
+      o.customer_phone,
+      orderStatusLabels[o.status] ?? o.status,
+      paymentMethodLabels[o.actual_payment_method ?? o.payment_method] ?? o.payment_method,
+      formatCentsForExport(o.subtotal_cents),
+      formatCentsForExport(o.delivery_fee_cents),
+      formatCentsForExport(o.total_cents),
+      o.rider_name ?? '',
+    ]),
+    [filteredOrders]
+  );
+
   // ─── Status toggle ───────────────────────────────────────────────────────
 
   const toggleStatus = (status: string) => {
@@ -410,11 +431,21 @@ export function AgentOrdersTable() {
             </button>
           )}
 
-          {/* Right side: count + refresh */}
+          {/* Right side: count + export + refresh */}
           <div className="ml-auto flex items-center gap-3">
             <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
               {filteredOrders.length} pedido{filteredOrders.length !== 1 ? 's' : ''}
             </span>
+            {/* ADMIN-FIN-2: Export CSV */}
+            {filteredOrders.length > 0 && (
+              <ExportCSVButton
+                mode="client"
+                headers={csvHeaders}
+                rows={csvRows}
+                filenamePrefix="pedidos_agente"
+                label="Exportar"
+              />
+            )}
             <span className="text-[10px] text-gray-400 dark:text-gray-500 hidden md:inline">
               Actualizado {formatTime(lastRefresh)}
             </span>

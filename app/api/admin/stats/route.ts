@@ -41,9 +41,25 @@ export async function GET(request: Request) {
     const period = (searchParams.get('period') || 'today') as StatsPeriod;
     const cityIdParam = searchParams.get('city_id');
 
+    // ADMIN-FIN-2: Support explicit from/to date params
+    const fromParam = searchParams.get('from'); // "2026-02-23"
+    const toParam = searchParams.get('to');     // "2026-02-23"
+
     // city_admin always sees only their city
     const effectiveCityId = userData.role === 'city_admin' ? userData.city_id : (cityIdParam || null);
-    const periodStart = getPeriodStart(period);
+
+    // Determine date range: explicit from/to takes precedence over period
+    let periodStart: string;
+    let periodEnd: string | null = null;
+
+    if (fromParam) {
+      periodStart = `${fromParam}T00:00:00`;
+      if (toParam) {
+        periodEnd = `${toParam}T23:59:59`;
+      }
+    } else {
+      periodStart = getPeriodStart(period);
+    }
 
     // Build order query
     let ordersQuery = supabase
@@ -52,6 +68,7 @@ export async function GET(request: Request) {
       .gte('created_at', periodStart)
       .neq('status', 'cart');
 
+    if (periodEnd) ordersQuery = ordersQuery.lte('created_at', periodEnd);
     if (effectiveCityId) ordersQuery = ordersQuery.eq('city_id', effectiveCityId);
 
     const { data: orders } = await ordersQuery;

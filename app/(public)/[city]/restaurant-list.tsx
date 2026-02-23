@@ -23,10 +23,22 @@ interface RestaurantListProps {
   featuredRestaurantId: string | null;
 }
 
-function shuffleArray<T>(arr: T[]): T[] {
+// Seeded shuffle — deterministic for server + client on the same day
+// Changes daily so restaurants rotate fairly
+function seededShuffle<T>(arr: T[]): T[] {
   const shuffled = [...arr];
+  // Seed = YYYYMMDD as integer → same on server & client
+  const now = new Date();
+  let seed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+  // Simple mulberry32-style PRNG
+  const next = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(next() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
@@ -72,7 +84,7 @@ export function RestaurantList({
 
     return {
       featuredRestaurant: featured,
-      openShuffled: shuffleArray(openForGrid),
+      openShuffled: seededShuffle(openForGrid),
       closedList: closed,
       allClosed: open.length === 0 && filtered.length > 0,
       totalOpen: open.length,
