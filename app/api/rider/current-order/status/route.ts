@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
+// [CREDITOS-1B] Import del procesador de créditos
+import { processDeliveryCredits } from '@/lib/credits/process-delivery';
 
 // Valid status transitions for rider
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -147,6 +149,47 @@ export async function PATCH(request: NextRequest) {
           );
         }
       }
+
+      // =========================================================
+      // [CREDITOS-1B] Procesar créditos ANTES de cambiar status
+      // =========================================================
+      // Guardar actual_payment_method primero (process-delivery lo necesita)
+      const serviceSupabaseForCredits = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      // Asegurar que actual_payment_method esté guardado antes de procesar créditos
+      await serviceSupabaseForCredits
+        .from('orders')
+        .update({ actual_payment_method: actualMethod })
+        .eq('id', order.id);
+
+      const creditsResult = await processDeliveryCredits(order.id, serviceSupabaseForCredits);
+
+      if (!creditsResult.success) {
+        console.error(
+          `[CREDITS] Failed for order ${order.id}:`,
+          creditsResult.error
+        );
+        return NextResponse.json(
+          { error: `Error procesando créditos: ${creditsResult.error}` },
+          { status: 500 }
+        );
+      }
+
+      console.log(
+        `[CREDITS] Order ${order.id} processed:`,
+        `rest_commission=${creditsResult.restaurant_commission_cents}`,
+        `yumi_delivery=${creditsResult.yumi_delivery_commission_cents}`,
+        `rider_delivery=${creditsResult.rider_delivery_commission_cents}`,
+        `food_debit=${creditsResult.rider_food_debit_cents}`,
+        `comm_debit=${creditsResult.rider_commission_debit_cents}`,
+        `rest_credit=${creditsResult.restaurant_credit_cents}`
+      );
+      // =========================================================
+      // [FIN CREDITOS-1B]
+      // =========================================================
 
       // Mark payment as paid
       updateData.payment_status = 'paid';

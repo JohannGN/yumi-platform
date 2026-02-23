@@ -3,6 +3,7 @@
 // ✅ PRECIOS RECALCULADOS SERVER-SIDE (anti-fraude)
 // ✅ POS surcharge calculado en servidor
 // ✅ Frontend prices are IGNORED – only item IDs + quantities matter
+// ✅ [CREDITOS-1B] rounding_surplus_cents calculado y guardado
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -307,7 +308,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const serverTotalCents = roundUpCents(baseTotal + serviceFeeCents);
+    // [CREDITOS-1B] Calcular total con rounding surplus
+    const rawTotal = serverSubtotalCents + serverDeliveryFeeCents + serviceFeeCents;
+    const serverTotalCents = roundUpCents(rawTotal);
+    const roundingSurplusCents = serverTotalCents - rawTotal;
 
     // === 7. Generar código de orden ===
     const { data: codeData, error: codeError } = await supabaseAdmin.rpc(
@@ -348,6 +352,7 @@ export async function POST(request: NextRequest) {
         service_fee_cents: serviceFeeCents,     // ✅ POS surcharge dinámico (0 si no es POS)
         discount_cents: 0,
         total_cents: serverTotalCents,          // ✅ Server-recalculated
+        rounding_surplus_cents: roundingSurplusCents, // ✅ [CREDITOS-1B] Surplus → YUMI
         status: 'awaiting_confirmation',
         payment_method: payload.payment_method,
         payment_status: 'pending',
