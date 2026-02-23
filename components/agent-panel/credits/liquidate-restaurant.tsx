@@ -32,7 +32,9 @@ export function LiquidateRestaurant({ onSuccess }: { onSuccess?: () => void }) {
 
   const selectedRestaurant = restaurants.find(r => r.id === selectedRestaurantId);
   const amountCents = Math.round(parseFloat(amountSoles || '0') * 100);
-  const proofRequired = amountCents > 5000; // >S/50
+  const proofHint = paymentMethod === 'cash'
+    ? 'Documento firmado con huella del encargado'
+    : 'Captura de pantalla del pago';
 
   // Fetch restaurants with credits
   const fetchRestaurants = useCallback(async () => {
@@ -83,8 +85,12 @@ export function LiquidateRestaurant({ onSuccess }: { onSuccess?: () => void }) {
       setError(`El monto excede el saldo disponible (${formatCurrency(selectedRestaurant.balance_cents)})`);
       return;
     }
-    if (proofRequired && !proofFile) {
-      setError('Foto de comprobante obligatoria para montos mayores a S/ 50.00');
+    if (!proofFile) {
+      setError(
+        paymentMethod === 'cash'
+          ? 'Adjunta foto del documento firmado con huella del encargado'
+          : 'Adjunta captura de pantalla del pago'
+      );
       return;
     }
 
@@ -226,7 +232,8 @@ export function LiquidateRestaurant({ onSuccess }: { onSuccess?: () => void }) {
         {/* Foto comprobante */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Foto comprobante {proofRequired ? <span className="text-red-500">*</span> : '(opcional)'}
+            Comprobante <span className="text-red-500">*</span>
+            <span className="font-normal text-gray-400 dark:text-gray-500 ml-1">— {proofHint}</span>
           </label>
           <input
             type="file"
@@ -299,7 +306,7 @@ export function LiquidateRestaurant({ onSuccess }: { onSuccess?: () => void }) {
         {/* Botón submit */}
         <button
           onClick={handleSubmit}
-          disabled={submitting || !selectedRestaurantId || amountCents <= 0}
+          disabled={submitting || !selectedRestaurantId || amountCents <= 0 || !proofFile}
           className="w-full py-2.5 px-4 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-medium rounded-md text-sm transition-colors disabled:cursor-not-allowed"
         >
           {submitting ? 'Procesando...' : 'Confirmar liquidación'}

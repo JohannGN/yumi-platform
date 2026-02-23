@@ -198,38 +198,38 @@ export function RiderCreditMonitor() {
                         ) : detail ? (
                           <div className="space-y-3">
                             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Resumen del turno ({detail.shift_summary.deliveries} entregas)
+                              Resumen del turno ({detail.shift_summary?.deliveries ?? 0} entregas)
                             </p>
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <DetailRow
                                 label="Comida descontada"
-                                value={formatCurrency(Math.abs(detail.shift_summary.total_food_debit_cents))}
+                                value={formatCurrency(Math.abs(detail.shift_summary?.total_food_debit_cents ?? 0))}
                                 color="#EF4444"
                               />
                               <DetailRow
                                 label="Comisión YUMI"
-                                value={formatCurrency(Math.abs(detail.shift_summary.total_commission_debit_cents))}
+                                value={formatCurrency(Math.abs(detail.shift_summary?.total_commission_debit_cents ?? 0))}
                                 color="#EF4444"
                               />
                               <DetailRow
                                 label="Ganado delivery"
-                                value={formatCurrency(detail.shift_summary.total_earned_delivery_cents)}
+                                value={formatCurrency(detail.shift_summary?.total_earned_delivery_cents ?? 0)}
                                 color="#22C55E"
                               />
                               <DetailRow
                                 label="Efectivo cobrado"
-                                value={formatCurrency(detail.shift_summary.cash_collected_cents)}
+                                value={formatCurrency(detail.shift_summary?.cash_collected_cents ?? 0)}
                                 color="#3B82F6"
                               />
                               <DetailRow
                                 label="Digital cobrado"
-                                value={formatCurrency(detail.shift_summary.digital_collected_cents)}
+                                value={formatCurrency(detail.shift_summary?.digital_collected_cents ?? 0)}
                                 color="#8B5CF6"
                               />
                               <DetailRow
                                 label="Puede recibir cash"
-                                value={detail.credits.can_receive_cash_orders ? 'Sí' : 'No'}
-                                color={detail.credits.can_receive_cash_orders ? '#22C55E' : '#EF4444'}
+                                value={detail.credits?.can_receive_cash_orders ? 'Sí' : 'No'}
+                                color={detail.credits?.can_receive_cash_orders ? '#22C55E' : '#EF4444'}
                               />
                             </div>
                           </div>
