@@ -175,6 +175,78 @@ export const riderPayTypeLabels: Record<string, string> = {
   fixed_salary: 'Sueldo fijo', commission: 'Comisión',
 };
 
+// === COMMISSION MODE LABELS ===
+export const commissionModeLabels: Record<string, string> = {
+  global: 'Comisión global',
+  per_item: 'Comisión por plato',
+};
+
+// === CREDIT TRANSACTION TYPE LABELS ===
+export const creditTransactionTypeLabels: Record<string, string> = {
+  recharge: 'Recarga de créditos',
+  order_food_debit: 'Descuento porción comida',
+  order_commission_debit: 'Descuento comisión YUMI',
+  order_credit: 'Créditos por pedido',
+  liquidation: 'Liquidación diaria',
+  refund: 'Devolución de garantía',
+  adjustment: 'Ajuste manual',
+  voided_recharge: 'Recarga anulada',
+};
+
+// === RECHARGE CODE STATUS LABELS ===
+export const rechargeCodeStatusLabels: Record<string, string> = {
+  pending: 'Pendiente de canje',
+  redeemed: 'Canjeado',
+  voided: 'Anulado',
+};
+
+// === LIQUIDATION PAYMENT METHOD LABELS ===
+export const liquidationPaymentMethodLabels: Record<string, string> = {
+  yape: 'Yape',
+  plin: 'Plin',
+  transfer: 'Transferencia',
+  cash: 'Efectivo',
+};
+
+// === CREDIT ALERT THRESHOLDS ===
+export const creditThresholds = {
+  minimum_cents: 10000,   // S/100 — bloqueo para pedidos cash
+  warning_cents: 15000,   // S/150 — alerta amarilla
+  healthy_cents: 15000,   // >= S/150 — operación normal
+} as const;
+
+// === CREDIT STATUS COLORS ===
+export const creditStatusColors = {
+  healthy: '#22C55E',     // Verde — saldo >= S/150
+  warning: '#F59E0B',     // Amarillo — S/100-149
+  critical: '#EF4444',    // Rojo — < S/100
+  blocked: '#6B7280',     // Gris — S/0 (solo digital)
+} as const;
+
+// === CREDIT FORMATTERS ===
+export function formatCredits(cents: number): string {
+  return `${(cents / 100).toFixed(2)} créditos`;
+}
+
+export function formatRechargeCode(code: string): string {
+  // A7K3M9R2 → A7K3 M9R2 (más legible)
+  return `${code.slice(0, 4)} ${code.slice(4)}`;
+}
+
+export function getCreditStatusColor(balanceCents: number): string {
+  if (balanceCents >= creditThresholds.healthy_cents) return creditStatusColors.healthy;
+  if (balanceCents >= creditThresholds.minimum_cents) return creditStatusColors.warning;
+  if (balanceCents > 0) return creditStatusColors.critical;
+  return creditStatusColors.blocked;
+}
+
+export function getCreditStatusLabel(balanceCents: number): string {
+  if (balanceCents >= creditThresholds.healthy_cents) return 'Saldo saludable';
+  if (balanceCents >= creditThresholds.minimum_cents) return 'Saldo bajo';
+  if (balanceCents > 0) return 'Créditos insuficientes';
+  return 'Sin créditos';
+}
+
 // === LAYOUT TOKENS ===
 export const layout = {
   maxWidth: {
