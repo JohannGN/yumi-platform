@@ -20,6 +20,7 @@ import {
   PanelLeftOpen,
   X,
   Headset,
+  Coins,
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -61,8 +62,9 @@ const catalogItems: NavItem[] = [
 const finanzasItems: NavItem[] = [
   { href: '/admin/finanzas',              icon: BarChart3, label: 'Dashboard'    },
   { href: '/admin/finanzas/caja',         icon: Wallet,    label: 'Caja'         },
-  { href: '/admin/finanzas/restaurantes', icon: Store,     label: 'Restaurantes'},
-  { href: '/admin/finanzas/riders',       icon: Bike,      label: 'Riders'},
+  { href: '/admin/finanzas/creditos',     icon: Coins,     label: 'Créditos'     },
+  { href: '/admin/finanzas/restaurantes', icon: Store,     label: 'Restaurantes' },
+  { href: '/admin/finanzas/riders',       icon: Bike,      label: 'Riders'       },
 ];
 
 function isActive(href: string, pathname: string) {

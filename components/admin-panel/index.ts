@@ -1,7 +1,6 @@
 // ============================================================
 // BARREL EXPORTS — components/admin-panel/index.ts
-// INSTRUCCION: Reemplazar el archivo existente con este contenido
-// o agregar las 5 lineas nuevas al final del archivo existente
+// Versión: CREDITOS-3A
 // ============================================================
 
 // Existentes (NO modificar)
@@ -37,9 +36,15 @@ export * from './zones-map';
 export * from './zone-form';
 export * from './admin-context';
 
-// Financiero (8A) — NUEVOS
+// Financiero (8A)
 export * from './financial-kpi-cards';
 export * from './financial-chart';
 export * from './cash-in-field-table';
 export * from './daily-reports-table';
 export * from './daily-report-detail';
+
+// Créditos (CREDITOS-3A) — NUEVOS
+export * from './credits-summary-cards';
+export * from './credits-transactions-table';
+export * from './credits-adjustment-form';
+export * from './credits-recharge-viewer';
