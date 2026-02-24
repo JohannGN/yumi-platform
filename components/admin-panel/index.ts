@@ -56,3 +56,8 @@ export * from './admin-agent-permissions';
 // Usuarios + Auditoría (ADMIN-FIN-3) — NUEVOS
 export * from './users-list-page';
 export * from './audit-log-page';
+
+// Mapa operativo + Ban (ADMIN-FIN-4) — NUEVOS
+export * from './operational-map';
+export * from './map-filter-panel';
+export * from './ban-phone-modal';

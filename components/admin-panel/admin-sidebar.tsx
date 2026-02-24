@@ -53,6 +53,7 @@ const operationsItems: NavItem[] = [
   { href: '/admin/pedidos',  icon: ShoppingBag,     label: 'Pedidos'   },
   { href: '/admin/riders',   icon: Bike,            label: 'Riders'    },
   { href: '/admin/agentes',  icon: Headset,         label: 'Agentes'   },
+  { href: '/admin/mapa', icon: MapPin, label: 'Mapa operativo' },
 ];
 
 const catalogItems: NavItem[] = [

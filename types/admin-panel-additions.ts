@@ -108,3 +108,72 @@ export interface AuditLogFilters {
   page?: number;
   limit?: number;
 }
+
+// === MAPA OPERATIVO ===
+
+export interface MapRider {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  is_online: boolean;
+  is_available: boolean;
+  current_order_id: string | null;
+  vehicle_type: 'motorcycle' | 'bicycle' | 'car';
+}
+
+export interface MapRestaurant {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  is_open: boolean;
+  schedule_open: boolean;
+  schedule_label: string;
+  address: string;
+  category_name: string;
+}
+
+export interface MapActiveOrder {
+  id: string;
+  code: string;
+  status: string;
+  delivery_lat: number;
+  delivery_lng: number;
+  restaurant_name: string;
+  rider_name: string | null;
+}
+
+export interface HeatmapPoint {
+  lat: number;
+  lng: number;
+  weight: number;
+}
+
+export interface MapFilters {
+  showRiders: boolean;
+  showRestaurants: boolean;
+  showOrders: boolean;
+  showHeatmap: boolean;
+  riderStatus: 'all' | 'available' | 'busy' | 'offline';
+  orderStatus: 'all' | string;
+  heatmapDays: 7 | 30 | 90;
+}
+
+// === BAN MANUAL ===
+
+export interface BanPhonePayload {
+  phone: string;
+  level: 'warning' | 'restricted' | 'banned';
+  reason: string;
+  banned_days?: number;
+  instant_ban?: boolean;
+}
+
+export interface PenaltyInfo {
+  phone: string;
+  penalty_level: 'none' | 'warning' | 'restricted' | 'banned';
+  total_penalties: number;
+  reasons: Array<{ date: string; reason: string; order_id?: string }>;
+  banned_until: string | null;
+}
