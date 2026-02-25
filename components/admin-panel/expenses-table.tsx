@@ -24,7 +24,7 @@ export function ExpensesTable() {
   // Filters
   const [filters, setFilters] = useState<ExpenseFilters>({
     limit: 20,
-    offset: 0,
+    page: 1,
   });
   const [dateRange, setDateRange] = useState<{ from?: string; to?: string }>({});
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -39,7 +39,7 @@ export function ExpensesTable() {
 
   // Build active filters
   const buildFilters = useCallback((): ExpenseFilters => {
-    const f: ExpenseFilters = { limit: 20, offset: filters.offset };
+    const f: ExpenseFilters = { limit: 20, page: filters.page };
     if (dateRange.from) f.from = dateRange.from;
     if (dateRange.to) f.to = dateRange.to;
     if (categoryFilter) f.category_id = categoryFilter;
@@ -47,7 +47,7 @@ export function ExpensesTable() {
     if (recurringFilter === 'true') f.recurring = true;
     if (recurringFilter === 'false') f.recurring = false;
     return f;
-  }, [filters.offset, dateRange, categoryFilter, cityFilter, recurringFilter]);
+  }, [filters.page, dateRange, categoryFilter, cityFilter, recurringFilter]);
 
   // Fetch expenses
   const fetchExpenses = useCallback(async () => {
@@ -99,9 +99,9 @@ export function ExpensesTable() {
     fetchExpenses();
   }, [fetchExpenses]);
 
-  // Reset offset on filter change
+  // Reset page on filter change
   const updateFilter = (key: string, value: string) => {
-    setFilters((prev) => ({ ...prev, offset: 0 }));
+    setFilters((prev) => ({ ...prev, page: 1 }));
     switch (key) {
       case 'category_id':
         setCategoryFilter(value);
@@ -116,17 +116,17 @@ export function ExpensesTable() {
   };
 
   const handleDateChange = (from?: string, to?: string) => {
-    setFilters((prev) => ({ ...prev, offset: 0 }));
+    setFilters((prev) => ({ ...prev, page: 1 }));
     setDateRange({ from, to });
   };
 
   // Pagination
   const total = response?.total ?? 0;
-  const currentPage = Math.floor((filters.offset ?? 0) / 20) + 1;
+  const currentPage = filters.page ?? 1;
   const totalPages = Math.ceil(total / 20);
 
   const goToPage = (page: number) => {
-    setFilters((prev) => ({ ...prev, offset: (page - 1) * 20 }));
+    setFilters((prev) => ({ ...prev, page }));
   };
 
   // Actions
@@ -160,7 +160,7 @@ export function ExpensesTable() {
     if (saved) fetchExpenses();
   };
 
-  // Export params (without offset/limit)
+  // Export params (without page/limit)
   const exportParams = (() => {
     const p: Record<string, string> = {};
     if (dateRange.from) p.from = dateRange.from;
@@ -257,7 +257,7 @@ export function ExpensesTable() {
           {total > 0 && (
             <span className="ml-2 font-medium" style={{ color: '#EF4444' }}>
               Total: {formatCurrency(
-                response.data.reduce((sum, e) => sum + e.amount_cents, 0)
+                response.expenses.reduce((sum, e) => sum + e.amount_cents, 0)
               )}
             </span>
           )}
@@ -290,7 +290,7 @@ export function ExpensesTable() {
                     ))}
                   </tr>
                 ))
-              ) : response?.data.length === 0 ? (
+              ) : response?.expenses?.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-gray-400 dark:text-gray-500">
                     <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -298,7 +298,7 @@ export function ExpensesTable() {
                   </td>
                 </tr>
               ) : (
-                response?.data.map((expense) => (
+                response?.expenses?.map((expense) => (
                   <tr
                     key={expense.id}
                     onClick={() => handleRowClick(expense)}

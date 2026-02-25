@@ -2,6 +2,7 @@
 
 // ============================================================
 // PylBreakdownCharts — Desglose ingresos y egresos con PieCharts
+// Solo se muestra en vista Gestión
 // Chat: EGRESOS-3
 // ============================================================
 
@@ -12,7 +13,6 @@ import {
   Pie,
   Cell,
   Tooltip,
-  Legend,
 } from 'recharts';
 import { Wallet, Receipt } from 'lucide-react';
 import { formatCurrency } from '@/config/tokens';
@@ -22,7 +22,6 @@ interface PylBreakdownChartsProps {
   summary: PylSummary;
 }
 
-// Paleta de colores para categorías de egresos
 const EXPENSE_COLORS = [
   '#EF4444', '#F97316', '#F59E0B', '#84CC16',
   '#22C55E', '#06B6D4', '#3B82F6', '#8B5CF6', '#EC4899',
@@ -33,65 +32,33 @@ const INCOME_COLORS = ['#22C55E', '#3B82F6', '#F59E0B'];
 interface TooltipPayloadItem {
   name: string;
   value: number;
-  payload: { fill: string; percent?: number };
+  payload: { fill: string };
 }
 
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: TooltipPayloadItem[];
-}
-
-function CustomPieTooltip({ active, payload }: CustomTooltipProps) {
-  if (!active || !payload || !payload.length) return null;
+function CustomPieTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayloadItem[] }) {
+  if (!active || !payload?.length) return null;
   const entry = payload[0];
   return (
     <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 text-sm">
       <div className="flex items-center gap-2 mb-1">
-        <div
-          className="w-3 h-3 rounded-full"
-          style={{ backgroundColor: entry.payload.fill }}
-        />
-        <span className="font-medium text-gray-900 dark:text-white">
-          {entry.name}
-        </span>
+        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.payload.fill }} />
+        <span className="font-medium text-gray-900 dark:text-white">{entry.name}</span>
       </div>
-      <p className="text-gray-600 dark:text-gray-300">
-        {formatCurrency(entry.value)}
-      </p>
+      <p className="text-gray-600 dark:text-gray-300">{formatCurrency(entry.value)}</p>
     </div>
   );
 }
 
-interface LegendPayloadItem {
-  value: string;
-  color: string;
-}
-
-interface CustomLegendProps {
-  payload?: LegendPayloadItem[];
-  data: Array<{ name: string; value: number }>;
-  total: number;
-}
-
-function CustomLegend({ payload, data, total }: CustomLegendProps) {
-  if (!payload) return null;
+function CustomLegend({ items, total }: { items: { name: string; value: number; color: string }[]; total: number }) {
   return (
     <div className="flex flex-col gap-1.5 mt-2">
-      {payload.map((entry, idx) => {
-        const item = data[idx];
-        const pct = total > 0 ? ((item?.value || 0) / total * 100).toFixed(1) : '0';
+      {items.map((item) => {
+        const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0';
         return (
-          <div key={entry.value} className="flex items-center gap-2 text-xs">
-            <div
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-gray-600 dark:text-gray-300 truncate flex-1">
-              {entry.value}
-            </span>
-            <span className="font-medium text-gray-900 dark:text-white">
-              {pct}%
-            </span>
+          <div key={item.name} className="flex items-center gap-2 text-xs">
+            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+            <span className="text-gray-600 dark:text-gray-300 truncate flex-1">{item.name}</span>
+            <span className="font-medium text-gray-900 dark:text-white">{pct}%</span>
           </div>
         );
       })}
@@ -115,11 +82,10 @@ export function PylBreakdownCharts({ summary }: PylBreakdownChartsProps) {
   }, [summary.income]);
 
   const expenseData = useMemo(
-    () =>
-      summary.expenses.by_category.map((cat) => ({
-        name: `${cat.category_icon} ${cat.category_name}`,
-        value: cat.total_cents,
-      })),
+    () => summary.expenses.by_category.map((cat) => ({
+      name: `${cat.category_icon} ${cat.category_name}`,
+      value: cat.total_cents,
+    })),
     [summary.expenses.by_category]
   );
 
@@ -162,17 +128,16 @@ export function PylBreakdownCharts({ summary }: PylBreakdownChartsProps) {
             </ResponsiveContainer>
             <div className="w-full sm:w-48">
               <CustomLegend
-                payload={incomeData.map((item, idx) => ({
-                  value: item.name,
+                items={incomeData.map((item, idx) => ({
+                  ...item,
                   color: INCOME_COLORS[idx % INCOME_COLORS.length],
                 }))}
-                data={incomeData}
                 total={summary.income.total_cents}
               />
             </div>
           </div>
         ) : (
-          <div className="h-[220px] flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+          <div className="h-[220px] flex items-center justify-center text-gray-400 text-sm">
             Sin ingresos en el período
           </div>
         )}
@@ -212,17 +177,16 @@ export function PylBreakdownCharts({ summary }: PylBreakdownChartsProps) {
             </ResponsiveContainer>
             <div className="w-full sm:w-48 max-h-[220px] overflow-y-auto">
               <CustomLegend
-                payload={expenseData.map((item, idx) => ({
-                  value: item.name,
+                items={expenseData.map((item, idx) => ({
+                  ...item,
                   color: EXPENSE_COLORS[idx % EXPENSE_COLORS.length],
                 }))}
-                data={expenseData}
                 total={summary.expenses.total_cents}
               />
             </div>
           </div>
         ) : (
-          <div className="h-[220px] flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+          <div className="h-[220px] flex items-center justify-center text-gray-400 text-sm">
             Sin egresos en el período
           </div>
         )}

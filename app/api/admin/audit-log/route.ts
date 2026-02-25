@@ -38,13 +38,10 @@ export async function GET(request: NextRequest) {
 
     const serviceClient = createServiceClient();
 
-    // Query audit_log with user join
+    // Query audit_log WITHOUT join (avoids FK dependency issues)
     let query = serviceClient
       .from('audit_log')
-      .select(`
-        id, user_id, action, entity_type, entity_id, details, created_at,
-        users!inner(name)
-      `, { count: 'exact' })
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -61,21 +58,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Flatten user name
-    const entries = (rows ?? []).map((row) => {
-      const r = row as Record<string, unknown>;
-      const u = r.users as { name: string } | null;
-      return {
-        id: r.id,
-        user_id: r.user_id,
-        user_name: u?.name ?? 'Sistema',
-        action: r.action,
-        entity_type: r.entity_type,
-        entity_id: r.entity_id,
-        details: r.details,
-        created_at: r.created_at,
-      };
-    });
+    // Fetch user names separately
+    const userIds = [...new Set((rows ?? []).map((r) => r.user_id).filter(Boolean))];
+    const userMap = new Map<string, string>();
+
+    if (userIds.length > 0) {
+      const { data: users } = await serviceClient
+        .from('users')
+        .select('id, name')
+        .in('id', userIds);
+
+      for (const u of users ?? []) {
+        userMap.set(u.id, u.name);
+      }
+    }
+
+    const entries = (rows ?? []).map((r) => ({
+      id: r.id,
+      user_id: r.user_id,
+      user_name: userMap.get(r.user_id) ?? 'Sistema',
+      action: r.action,
+      entity_type: r.entity_type,
+      entity_id: r.entity_id,
+      details: r.details,
+      created_at: r.created_at,
+    }));
 
     return NextResponse.json({ entries, total: count ?? entries.length });
   } catch (err) {

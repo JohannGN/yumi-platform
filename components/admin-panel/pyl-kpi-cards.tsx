@@ -1,7 +1,7 @@
 'use client';
 
 // ============================================================
-// PylKpiCards — KPI cards para el dashboard P&L
+// PylKpiCards — KPI cards para vista Gestión
 // Chat: EGRESOS-3
 // ============================================================
 
@@ -14,7 +14,6 @@ import {
   Target,
 } from 'lucide-react';
 import { formatCurrency } from '@/config/tokens';
-import { colors } from '@/config/design-tokens';
 import type { PylSummary } from '@/types/pyl';
 
 interface PylKpiCardsProps {
@@ -26,7 +25,7 @@ export function PylKpiCards({ summary }: PylKpiCardsProps) {
 
   const cards = [
     {
-      label: 'Ingresos totales',
+      label: 'Ingresos YUMI',
       value: formatCurrency(summary.income.total_cents),
       icon: TrendingUp,
       iconColor: 'text-green-600 dark:text-green-400',
@@ -34,7 +33,7 @@ export function PylKpiCards({ summary }: PylKpiCardsProps) {
       sub: `${summary.orders_count} pedidos entregados`,
     },
     {
-      label: 'Egresos totales',
+      label: 'Egresos operativos',
       value: formatCurrency(summary.expenses.total_cents),
       icon: TrendingDown,
       iconColor: 'text-red-600 dark:text-red-400',
@@ -45,12 +44,8 @@ export function PylKpiCards({ summary }: PylKpiCardsProps) {
       label: 'Margen neto',
       value: formatCurrency(summary.margin.net_cents),
       icon: DollarSign,
-      iconColor: isPositiveMargin
-        ? 'text-green-600 dark:text-green-400'
-        : 'text-red-600 dark:text-red-400',
-      iconBg: isPositiveMargin
-        ? 'bg-green-100 dark:bg-green-900/30'
-        : 'bg-red-100 dark:bg-red-900/30',
+      iconColor: isPositiveMargin ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
+      iconBg: isPositiveMargin ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30',
       sub: `${summary.margin.margin_percentage.toFixed(1)}% del ingreso`,
       highlight: true,
       highlightPositive: isPositiveMargin,
@@ -61,9 +56,7 @@ export function PylKpiCards({ summary }: PylKpiCardsProps) {
       icon: ArrowUpDown,
       iconColor: 'text-blue-600 dark:text-blue-400',
       iconBg: 'bg-blue-100 dark:bg-blue-900/30',
-      sub: summary.margin.ratio >= 1
-        ? 'Ingresos superan egresos'
-        : 'Egresos superan ingresos',
+      sub: summary.margin.ratio >= 1 ? 'Ingresos superan egresos' : 'Egresos superan ingresos',
     },
     {
       label: 'Ingreso por pedido',

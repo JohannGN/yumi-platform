@@ -12,7 +12,6 @@ import {
   MapPin,
   Settings,
   DollarSign,
-  Wallet,
   ChevronDown,
   ChevronRight,
   BarChart3,
@@ -25,7 +24,8 @@ import {
   ScrollText,
   Shield,
   Receipt,
-  TrendingUp
+  TrendingUp,
+  Landmark,
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -55,7 +55,7 @@ const operationsItems: NavItem[] = [
   { href: '/admin/pedidos',  icon: ShoppingBag,     label: 'Pedidos'   },
   { href: '/admin/riders',   icon: Bike,            label: 'Riders'    },
   { href: '/admin/agentes',  icon: Headset,         label: 'Agentes'   },
-  { href: '/admin/mapa', icon: MapPin, label: 'Mapa operativo' },
+  { href: '/admin/mapa',     icon: MapPin,          label: 'Mapa operativo' },
 ];
 
 const catalogItems: NavItem[] = [
@@ -66,13 +66,11 @@ const catalogItems: NavItem[] = [
 ];
 
 const finanzasItems: NavItem[] = [
-  { href: '/admin/finanzas',              icon: BarChart3, label: 'Dashboard'    },
-  { href: '/admin/finanzas/caja',         icon: Wallet,    label: 'Caja'         },
-  { href: '/admin/finanzas/creditos',     icon: Coins,     label: 'Créditos'     },
-  { href: '/admin/finanzas/restaurantes', icon: Store,     label: 'Restaurantes' },
-  { href: '/admin/finanzas/riders',       icon: Bike,      label: 'Riders'       },
-  { href: '/admin/finanzas/egresos',      icon: Receipt,   label: 'Egresos'      },
-  { href: '/admin/finanzas/pyl',          icon: TrendingUp,label: 'Estado de Resultados'},
+  { href: '/admin/finanzas',              icon: BarChart3,   label: 'Resumen'            },
+  { href: '/admin/finanzas/creditos',     icon: Coins,       label: 'Créditos'           },
+  { href: '/admin/finanzas/egresos',      icon: Receipt,     label: 'Egresos'            },
+  { href: '/admin/finanzas/pyl',          icon: TrendingUp,  label: 'Estado de Resultados'},
+  { href: '/admin/finanzas/tesoreria',    icon: Landmark,    label: 'Tesorería'          },
 ];
 
 const sistemaItems: NavItem[] = [

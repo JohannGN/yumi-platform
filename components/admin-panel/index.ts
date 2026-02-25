@@ -1,6 +1,6 @@
 // ============================================================
 // BARREL EXPORTS — components/admin-panel/index.ts
-// Versión: ALERTAS
+// Versión: FINANZAS-CLEANUP
 // ============================================================
 
 // Existentes (NO modificar)
@@ -34,14 +34,12 @@ export * from './city-settings-form';
 export * from './zones-list';
 export * from './zones-map';
 export * from './zone-form';
-export * from './admin-context';
 
-// Financiero (8A)
+// Financiero (8A) — solo componentes usados por dashboard principal
 export * from './financial-kpi-cards';
 export * from './financial-chart';
 export * from './cash-in-field-table';
-export * from './daily-reports-table';
-export * from './daily-report-detail';
+// ELIMINADOS (FINANZAS-CLEANUP): daily-reports-table, daily-report-detail → solo los usaba caja legacy
 
 // Créditos (CREDITOS-3A)
 export * from './credits-summary-cards';
@@ -53,20 +51,20 @@ export * from './credits-recharge-viewer';
 export * from './admin-agents-page';
 export * from './admin-agent-permissions';
 
-// Usuarios + Auditoría (ADMIN-FIN-3) — NUEVOS
+// Usuarios + Auditoría (ADMIN-FIN-3)
 export * from './users-list-page';
 export * from './audit-log-page';
 
-// Mapa operativo + Ban (ADMIN-FIN-4) — NUEVOS
+// Mapa operativo + Ban (ADMIN-FIN-4)
 export * from './operational-map';
 export * from './map-filter-panel';
 export * from './ban-phone-modal';
 
-// Alertas + Crecimiento (ALERTAS) — NUEVOS
+// Alertas + Crecimiento (ALERTAS)
 export * from './alerts-dropdown';
 export * from './growth-metrics-widget';
 
-// Expenses
+// Expenses (EGRESOS-2)
 export { ExpensesPage } from './expenses-page';
 export { ExpensesTable } from './expenses-table';
 export { ExpenseFormModal } from './expense-form-modal';

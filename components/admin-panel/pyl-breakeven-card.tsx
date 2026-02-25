@@ -2,7 +2,7 @@
 
 // ============================================================
 // PylBreakevenCard — Card de punto de equilibrio
-// Muestra costos fijos, margen promedio, pedidos necesarios
+// Solo se muestra en vista Gestión
 // Chat: EGRESOS-3
 // ============================================================
 
@@ -19,13 +19,9 @@ export function PylBreakevenCard({ summary }: PylBreakevenCardProps) {
   const hasFixedCosts = breakeven.monthly_fixed_costs_cents > 0;
   const hasMargin = breakeven.avg_margin_per_order_cents > 0;
 
-  // Calculate current month progress
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dayOfMonth = now.getDate();
-  const monthProgress = dayOfMonth / daysInMonth;
 
-  // Estimate monthly orders based on current period rate
   const periodFrom = new Date(summary.period.from);
   const periodTo = new Date(summary.period.to);
   const periodDays = Math.max(1, Math.ceil((periodTo.getTime() - periodFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1);
@@ -82,35 +78,27 @@ export function PylBreakevenCard({ summary }: PylBreakevenCardProps) {
         )}
       </div>
 
-      {/* Metrics grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-            Costos fijos mensuales
-          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Costos fijos mensuales</p>
           <p className="text-lg font-bold text-gray-900 dark:text-white">
             {formatCurrency(breakeven.monthly_fixed_costs_cents)}
           </p>
         </div>
         <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-            Ingreso promedio/pedido
-          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Ingreso promedio/pedido</p>
           <p className="text-lg font-bold text-gray-900 dark:text-white">
             {formatCurrency(breakeven.avg_margin_per_order_cents)}
           </p>
         </div>
         <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-            Pedidos necesarios/mes
-          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pedidos necesarios/mes</p>
           <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
             {breakeven.orders_needed}
           </p>
         </div>
       </div>
 
-      {/* Progress bar */}
       <div>
         <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
           <span>
@@ -119,9 +107,7 @@ export function PylBreakevenCard({ summary }: PylBreakevenCardProps) {
               ({dailyOrderRate.toFixed(1)}/día × {daysInMonth}d)
             </span>
           </span>
-          <span className="font-medium">
-            {progressPercent}%
-          </span>
+          <span className="font-medium">{progressPercent}%</span>
         </div>
         <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
           <div
@@ -135,18 +121,8 @@ export function PylBreakevenCard({ summary }: PylBreakevenCardProps) {
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-        {/* Breakeven marker */}
-        <div className="relative mt-1">
-          <div
-            className="absolute top-0 text-[10px] text-gray-400 dark:text-gray-500"
-            style={{ left: '100%', transform: 'translateX(-100%)' }}
-          >
-            Meta: {breakeven.orders_needed}
-          </div>
-        </div>
       </div>
 
-      {/* Explanation tooltip */}
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
         Cálculo: costos fijos mensuales ÷ ingreso promedio por pedido = pedidos mínimos para cubrir gastos fijos.
       </p>

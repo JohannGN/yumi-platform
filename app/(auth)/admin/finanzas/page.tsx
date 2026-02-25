@@ -41,10 +41,10 @@ export default function FinancialDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-            Dashboard Financiero
+            Resumen Financiero
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Vision general de ingresos y flujo de efectivo
+            Visión general de ingresos y flujo de efectivo
           </p>
         </div>
 
@@ -83,26 +83,6 @@ export default function FinancialDashboardPage() {
           <CashInFieldTable />
         </div>
       </div>
-
-      {/* Acceso rapido a caja */}
-      {summary && summary.pending_validations_count > 0 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4 flex items-center justify-between">
-          <div>
-            <p className="font-medium text-yellow-800 dark:text-yellow-300">
-              {summary.pending_validations_count} cierre{summary.pending_validations_count > 1 ? 's' : ''} de caja pendiente{summary.pending_validations_count > 1 ? 's' : ''} de validacion
-            </p>
-            <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-0.5">
-              Revisa los reportes de los riders y aprueba o rechaza segun corresponda
-            </p>
-          </div>
-          <a
-            href="/admin/finanzas/caja"
-            className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-          >
-            Ir a Caja
-          </a>
-        </div>
-      )}
     </div>
   );
 }
