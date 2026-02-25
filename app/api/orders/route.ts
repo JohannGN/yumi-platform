@@ -4,6 +4,7 @@
 // ✅ POS surcharge calculado en servidor
 // ✅ Frontend prices are IGNORED – only item IDs + quantities matter
 // ✅ [CREDITOS-1B] rounding_surplus_cents calculado y guardado
+// ✅ [ALERTAS] Horario de corte automático
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,11 +18,34 @@ const supabaseAdmin = createClient(
 
 const WHATSAPP_NUMBER = '51953211536';
 const CONFIRMATION_MINUTES = 15;
-// ❌ ELIMINADO: const POS_SURCHARGE_RATE = 0.045; → ahora se lee de platform_settings
 
 // Redondeo YUMI: siempre arriba al múltiplo de 10 céntimos
 function roundUpCents(cents: number): number {
   return Math.ceil(cents / 10) * 10;
+}
+
+// [ALERTAS] Horario de corte — Lima timezone
+const DAY_KEYS_SERVER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+function isAfterCutoff(openingHours: Record<string, { open: string; close: string; closed: boolean }>, estimatedPrepMinutes: number): boolean {
+  const now = new Date();
+  const limaOffset = -5 * 60;
+  const localOffset = now.getTimezoneOffset();
+  const limaTime = new Date(now.getTime() + (localOffset + limaOffset) * 60000);
+  const jsDay = limaTime.getDay();
+  const dayIndex = jsDay === 0 ? 6 : jsDay - 1;
+  const dayKey = DAY_KEYS_SERVER[dayIndex];
+  const schedule = openingHours?.[dayKey];
+
+  if (!schedule || schedule.closed) return true;
+
+  const currentMinutes = limaTime.getHours() * 60 + limaTime.getMinutes();
+  const [closeH, closeM] = schedule.close.split(':').map(Number);
+  const closeMinutes = closeH * 60 + closeM;
+  const prepMinutes = estimatedPrepMinutes > 0 ? estimatedPrepMinutes : 30;
+  const cutoffMinutes = closeMinutes - prepMinutes;
+
+  return currentMinutes > cutoffMinutes;
 }
 
 // Types for the request payload
@@ -92,7 +116,7 @@ export async function POST(request: NextRequest) {
     // === 2. Verificar restaurante abierto ===
     const { data: restaurant, error: restError } = await supabaseAdmin
       .from('restaurants')
-      .select('id, name, is_open, is_active, city_id, lat, lng')
+      .select('id, name, is_open, is_active, city_id, lat, lng, opening_hours, estimated_prep_minutes')
       .eq('id', payload.restaurant_id)
       .single();
 
@@ -117,6 +141,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // === 2b. [ALERTAS] Verificar horario de corte ===
+    if (isAfterCutoff(restaurant.opening_hours, restaurant.estimated_prep_minutes)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Este restaurante ya no acepta pedidos hoy. No hay tiempo suficiente para preparar tu pedido antes del cierre.',
+          cutoff: true,
+        },
+        { status: 400 },
+      );
+    }
+
     // === 3. Verificar penalidades ===
     const { data: penaltyData } = await supabaseAdmin.rpc(
       'check_customer_penalty',
@@ -132,8 +168,6 @@ export async function POST(request: NextRequest) {
     }
 
     // === 4. RECALCULAR PRECIOS SERVER-SIDE (anti-fraude) ===
-    // Fetch actual prices from DB – NEVER trust frontend prices
-
     const itemIds = payload.items.map((i) => i.menu_item_id);
     const variantIds = payload.items
       .map((i) => i.variant_id)
@@ -195,7 +229,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4c. Fetch modifier prices (collect all modifier IDs from selections)
+    // 4c. Fetch modifier prices
     const allModifierIds: string[] = [];
     for (const item of payload.items) {
       for (const mod of item.modifiers) {
@@ -226,18 +260,14 @@ export async function POST(request: NextRequest) {
     const serverOrderItems = payload.items.map((item) => {
       const dbItem = menuItemMap.get(item.menu_item_id)!;
 
-      // Base price: variant price if variant exists, otherwise menu item price
       const basePriceCents = item.variant_id && variantMap.has(item.variant_id)
         ? variantMap.get(item.variant_id)!
         : dbItem.base_price_cents;
 
-      // Modifier total: sum of all selected modifier prices from DB
       let modifierTotalCents = 0;
       const serverModifiers = item.modifiers.map((mod) => ({
         group_name: mod.group_name,
         selections: mod.selections.map((sel) => {
-          // Use DB price if we have the modifier_id, otherwise use the sent price
-          // (for modifiers without ID tracking, we fall back to frontend price)
           const dbPrice = sel.modifier_id ? modifierMap.get(sel.modifier_id) : undefined;
           const priceCents = dbPrice !== undefined ? dbPrice : sel.price_cents;
           modifierTotalCents += priceCents;
@@ -277,7 +307,6 @@ export async function POST(request: NextRequest) {
       if (zone) {
         deliveryZoneId = zone.id;
 
-        // Calculate distance restaurant → client (Haversine approximation)
         const distKm = haversineKm(
           restaurant.lat, restaurant.lng,
           payload.delivery_lat, payload.delivery_lng,
@@ -290,8 +319,6 @@ export async function POST(request: NextRequest) {
     }
 
     // === 6. Calculate POS surcharge dinámico desde platform_settings ===
-    // ANTES: serviceFeeCents = roundUpCents(Math.ceil(baseTotal * POS_SURCHARGE_RATE))
-    // AHORA: se lee pos_commission_rate y pos_igv_rate desde la BD
     const baseTotal = roundUpCents(serverSubtotalCents + serverDeliveryFeeCents);
     let serviceFeeCents = 0;
 
@@ -346,13 +373,13 @@ export async function POST(request: NextRequest) {
         delivery_lng: payload.delivery_lng,
         delivery_zone_id: deliveryZoneId,
         delivery_instructions: payload.delivery_instructions?.trim() || null,
-        items: serverOrderItems,               // ✅ Server-recalculated items
-        subtotal_cents: serverSubtotalCents,    // ✅ Server-recalculated
-        delivery_fee_cents: serverDeliveryFeeCents, // ✅ Server-recalculated
-        service_fee_cents: serviceFeeCents,     // ✅ POS surcharge dinámico (0 si no es POS)
+        items: serverOrderItems,
+        subtotal_cents: serverSubtotalCents,
+        delivery_fee_cents: serverDeliveryFeeCents,
+        service_fee_cents: serviceFeeCents,
         discount_cents: 0,
-        total_cents: serverTotalCents,          // ✅ Server-recalculated
-        rounding_surplus_cents: roundingSurplusCents, // ✅ [CREDITOS-1B] Surplus → YUMI
+        total_cents: serverTotalCents,
+        rounding_surplus_cents: roundingSurplusCents,
         status: 'awaiting_confirmation',
         payment_method: payload.payment_method,
         payment_status: 'pending',
@@ -406,7 +433,7 @@ function haversineKm(
   lat1: number, lng1: number,
   lat2: number, lng2: number,
 ): number {
-  const R = 6371; // Earth radius in km
+  const R = 6371;
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
   const a =
@@ -414,7 +441,7 @@ function haversineKm(
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round((R * c) * 100) / 100; // 2 decimals
+  return Math.round((R * c) * 100) / 100;
 }
 
 function toRad(deg: number): number {

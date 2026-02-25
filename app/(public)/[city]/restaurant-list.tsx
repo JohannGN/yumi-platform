@@ -311,7 +311,7 @@ function RestaurantCard({
   const scheduleText = formatSchedule(todaySchedule);
   const isOpen = restaurant.is_open;
   const isNew = isNewRestaurant(restaurant.created_at);
-  const hasRating = restaurant.avg_rating > 0 && restaurant.total_ratings > 0;
+  const hasRating = restaurant.avg_rating > 0 && restaurant.total_ratings >= 3;
 
   return (
     <Link href={`/${citySlug}/${restaurant.slug}`} className="block">
@@ -461,7 +461,7 @@ function HeroRestaurantCard({
   citySlug: string;
 }) {
   const theme = getRestaurantTheme(restaurant.theme_color);
-  const hasRating = restaurant.avg_rating > 0 && restaurant.total_ratings > 0;
+  const hasRating = restaurant.avg_rating > 0 && restaurant.total_ratings >= 3;
 
   return (
     <Link href={`/${citySlug}/${restaurant.slug}`} className="block">

@@ -4,6 +4,7 @@
 
 import type { OperatingHours, DaySchedule, ThemeColor } from '@/types/database';
 import { restaurantThemes, business } from '@/config/tokens';
+import type { LastOrderTimeResult } from '@/types/admin-panel-additions';
 
 const DAY_KEYS: (keyof OperatingHours)[] = [
   'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
@@ -82,4 +83,66 @@ export function formatPrice(cents: number): string {
  */
 export function formatRating(rating: number): string {
   return rating > 0 ? rating.toFixed(1) : 'Nuevo';
+}
+
+/**
+ * [ALERTAS] Calculate last order time for a restaurant.
+ * Blocks orders when: current_time > (closing_time - estimated_prep_minutes)
+ * Uses Lima timezone for consistent calculation.
+ *
+ * @param openingHours - Restaurant's opening_hours JSONB
+ * @param estimatedPrepMinutes - Restaurant's estimated_prep_minutes
+ * @returns LastOrderTimeResult with accepting flag and cutoff info
+ */
+export function getLastOrderTime(
+  openingHours: OperatingHours,
+  estimatedPrepMinutes: number,
+): LastOrderTimeResult {
+  const schedule = getTodaySchedule(openingHours);
+
+  // Closed today
+  if (schedule.closed) {
+    return {
+      accepting: false,
+      lastOrderTime: null,
+      closingTime: null,
+      message: 'Restaurante cerrado hoy',
+    };
+  }
+
+  // Get Lima time
+  const now = new Date();
+  const limaOffset = -5 * 60;
+  const localOffset = now.getTimezoneOffset();
+  const limaTime = new Date(now.getTime() + (localOffset + limaOffset) * 60000);
+  const currentMinutes = limaTime.getHours() * 60 + limaTime.getMinutes();
+
+  const [closeH, closeM] = schedule.close.split(':').map(Number);
+  const closeMinutes = closeH * 60 + closeM;
+
+  // Cutoff = closing - prep time
+  const prepMinutes = estimatedPrepMinutes > 0 ? estimatedPrepMinutes : 30;
+  const cutoffMinutes = closeMinutes - prepMinutes;
+
+  // Format cutoff time for display
+  const cutoffH = Math.floor(cutoffMinutes / 60);
+  const cutoffM = cutoffMinutes % 60;
+  const lastOrderTimeStr = `${cutoffH.toString().padStart(2, '0')}:${cutoffM.toString().padStart(2, '0')}`;
+  const closingTimeStr = schedule.close;
+
+  if (currentMinutes > cutoffMinutes) {
+    return {
+      accepting: false,
+      lastOrderTime: formatTimeStr(lastOrderTimeStr),
+      closingTime: formatTimeStr(closingTimeStr),
+      message: `Ya no se aceptan pedidos. El último pedido fue a las ${formatTimeStr(lastOrderTimeStr)}`,
+    };
+  }
+
+  return {
+    accepting: true,
+    lastOrderTime: formatTimeStr(lastOrderTimeStr),
+    closingTime: formatTimeStr(closingTimeStr),
+    message: `Último pedido hasta las ${formatTimeStr(lastOrderTimeStr)}`,
+  };
 }

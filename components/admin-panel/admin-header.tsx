@@ -6,6 +6,7 @@ import { Menu, LogOut, Sun, Moon, Ban } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAdmin } from './admin-context';
 import { BanPhoneModal } from './ban-phone-modal';
+import { AlertsDropdown } from './alerts-dropdown';
 
 const PAGE_TITLES: Record<string, string> = {
   '/admin': 'Dashboard',
@@ -31,6 +32,8 @@ export function AdminHeader({ onMenuToggle, isDark, onToggleTheme }: AdminHeader
   const router = useRouter();
   const pathname = usePathname();
   const { user, cityName } = useAdmin();
+  // cityId from authenticated user profile
+  const cityId = user?.city_id ?? null;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showBanModal, setShowBanModal] = useState(false);
 
@@ -64,6 +67,9 @@ export function AdminHeader({ onMenuToggle, isDark, onToggleTheme }: AdminHeader
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          {/* Alerts dropdown — NUEVO */}
+          <AlertsDropdown cityId={cityId} />
+
           {/* Ban phone */}
           <button
             onClick={() => setShowBanModal(true)}

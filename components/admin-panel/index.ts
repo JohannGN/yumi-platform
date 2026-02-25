@@ -1,6 +1,6 @@
 // ============================================================
 // BARREL EXPORTS — components/admin-panel/index.ts
-// Versión: ADMIN-FIN-3
+// Versión: ALERTAS
 // ============================================================
 
 // Existentes (NO modificar)
@@ -61,3 +61,7 @@ export * from './audit-log-page';
 export * from './operational-map';
 export * from './map-filter-panel';
 export * from './ban-phone-modal';
+
+// Alertas + Crecimiento (ALERTAS) — NUEVOS
+export * from './alerts-dropdown';
+export * from './growth-metrics-widget';

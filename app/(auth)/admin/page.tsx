@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { KpiCard } from '@/components/admin-panel/kpi-card';
 import { StatsChart } from '@/components/admin-panel/stats-chart';
+import { GrowthMetricsWidget } from '@/components/admin-panel/growth-metrics-widget';
 import { DateRangePicker } from '@/components/shared/date-range-picker';
 import type { DateRange } from '@/components/shared/date-range-picker';
 import { colors, formatCurrency } from '@/config/tokens';
@@ -56,7 +57,6 @@ export default function AdminDashboardPage() {
   const loadChart = useCallback(async () => {
     setIsChartLoading(true);
     try {
-      // Calculate days between from and to for chart granularity
       const fromDate = new Date(dateRange.from);
       const toDate = new Date(dateRange.to);
       const diffDays = Math.max(7, Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
@@ -155,8 +155,15 @@ export default function AdminDashboardPage() {
         />
       </div>
 
-      {/* Chart */}
-      <StatsChart data={chartData} isLoading={isChartLoading} />
+      {/* Chart + Growth side by side on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <StatsChart data={chartData} isLoading={isChartLoading} />
+        </div>
+        <div>
+          <GrowthMetricsWidget />
+        </div>
+      </div>
 
       {/* Status summary */}
       {!isLoading && stats && (

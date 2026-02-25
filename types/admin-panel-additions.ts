@@ -2,6 +2,7 @@
 // ADICIONES AL ARCHIVO types/admin-panel.ts
 // Chat 8A — Monitoreo Financiero + Cierre de Caja
 // + ADMIN-FIN-3 — Usuarios + Auditoría
+// + ALERTAS — Alertas operativas + Métricas crecimiento
 // INSTRUCCION: Agregar estas interfaces al final del archivo existente
 // ============================================================
 
@@ -82,16 +83,15 @@ export interface AdminUser {
   city_name: string | null;
   is_active: boolean;
   created_at: string;
-  // Datos extra según rol:
-  restaurant_name?: string;  // si role='restaurant'
-  vehicle_type?: string;     // si role='rider'
-  pay_type?: string;         // si role='rider'
+  restaurant_name?: string;
+  vehicle_type?: string;
+  pay_type?: string;
 }
 
 export interface AuditLogEntry {
   id: string;
   user_id: string;
-  user_name: string;  // aplanado del join
+  user_name: string;
   action: 'create' | 'update' | 'delete' | 'toggle' | 'assign';
   entity_type: string;
   entity_id: string | null;
@@ -176,4 +176,64 @@ export interface PenaltyInfo {
   total_penalties: number;
   reasons: Array<{ date: string; reason: string; order_id?: string }>;
   banned_until: string | null;
+}
+
+// === ALERTAS OPERATIVAS ===
+
+export type AlertPriority = 'critical' | 'high' | 'warning';
+
+export type AlertType =
+  | 'restaurant_not_opened'
+  | 'rider_offline_in_shift'
+  | 'order_stuck_pending'
+  | 'order_stuck_preparing'
+  | 'rider_disappeared'
+  | 'order_no_rider';
+
+export interface OperationalAlert {
+  type: AlertType;
+  priority: AlertPriority;
+  message: string;
+  entity_type: 'order' | 'rider' | 'restaurant';
+  entity_id: string;
+  entity_link: string;
+  created_at: string;
+  minutes_elapsed: number;
+}
+
+export interface AlertsSummary {
+  critical: number;
+  high: number;
+  warning: number;
+  total: number;
+}
+
+export interface AlertsResponse {
+  alerts: OperationalAlert[];
+  summary: AlertsSummary;
+}
+
+// === MÉTRICAS CRECIMIENTO ===
+
+export interface GrowthPeriodData {
+  unique_customers: number;
+  total_orders: number;
+  new_customers: number;
+  returning_customers: number;
+}
+
+export interface GrowthResponse {
+  current_period: GrowthPeriodData;
+  previous_period: GrowthPeriodData;
+  growth_percentage: number;
+  trend: Array<{ date: string; customers: number }>;
+}
+
+// === HORARIO DE CORTE ===
+
+export interface LastOrderTimeResult {
+  accepting: boolean;
+  lastOrderTime: string | null;
+  closingTime: string | null;
+  message: string;
 }
