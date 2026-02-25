@@ -66,10 +66,17 @@ export * from './ban-phone-modal';
 export * from './alerts-dropdown';
 export * from './growth-metrics-widget';
 
-//
+// Expenses
 export { ExpensesPage } from './expenses-page';
 export { ExpensesTable } from './expenses-table';
 export { ExpenseFormModal } from './expense-form-modal';
 export { ExpenseCategoriesManager } from './expense-categories-manager';
 export { ExpenseCategoryForm } from './expense-category-form';
 export { ExpenseDetailSheet } from './expense-detail-sheet';
+
+// P&L Dashboard (EGRESOS-3)
+export { PylDashboard } from './pyl-dashboard';
+export { PylKpiCards } from './pyl-kpi-cards';
+export { PylTrendChart } from './pyl-trend-chart';
+export { PylBreakdownCharts } from './pyl-breakdown-charts';
+export { PylBreakevenCard } from './pyl-breakeven-card';
