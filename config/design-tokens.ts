@@ -250,6 +250,8 @@ export const auditEntityTypeLabels: Record<string, string> = {
   recharge_code: 'Código recarga',
   credit_adjustment: 'Ajuste crédito',
   liquidation: 'Liquidación',
+  expense_category: 'Categoría egreso',
+  expense: 'Egreso',
 };
 
 // === COMMISSION TYPE LABELS (EGRESOS-1) ===

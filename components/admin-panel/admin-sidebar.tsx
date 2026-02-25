@@ -24,6 +24,7 @@ import {
   Users,
   ScrollText,
   Shield,
+  Receipt
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -69,6 +70,7 @@ const finanzasItems: NavItem[] = [
   { href: '/admin/finanzas/creditos',     icon: Coins,     label: 'Créditos'     },
   { href: '/admin/finanzas/restaurantes', icon: Store,     label: 'Restaurantes' },
   { href: '/admin/finanzas/riders',       icon: Bike,      label: 'Riders'       },
+  { href: '/admin/finanzas/egresos',      icon: Receipt,   label: 'Egresos'      },
 ];
 
 const sistemaItems: NavItem[] = [

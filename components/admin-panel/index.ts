@@ -65,3 +65,11 @@ export * from './ban-phone-modal';
 // Alertas + Crecimiento (ALERTAS) — NUEVOS
 export * from './alerts-dropdown';
 export * from './growth-metrics-widget';
+
+//
+export { ExpensesPage } from './expenses-page';
+export { ExpensesTable } from './expenses-table';
+export { ExpenseFormModal } from './expense-form-modal';
+export { ExpenseCategoriesManager } from './expense-categories-manager';
+export { ExpenseCategoryForm } from './expense-category-form';
+export { ExpenseDetailSheet } from './expense-detail-sheet';
