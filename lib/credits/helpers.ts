@@ -1,5 +1,5 @@
 // ============================================================
-// YUMI PLATFORM — CREDITOS-1B
+// YUMI PLATFORM — CREDITOS-1B + EGRESOS-1
 // lib/credits/helpers.ts
 // Helpers compartidos para operaciones de créditos
 // ============================================================
@@ -222,15 +222,35 @@ export function parsePagination(searchParams: URLSearchParams): { page: number; 
 // -------------------------------------------------------
 
 /**
- * Calcula la comisión del restaurante según su modo.
+ * Calcula la comisión del restaurante según commission_type y commission_mode.
+ *
+ * commission_type:
+ *   - 'percentage' → usa commission_mode (global | per_item)
+ *   - 'fixed_per_order' → cuota fija por pedido (commission_fixed_cents)
+ *   - 'none' → S/0
+ *
  * floor() para la comisión → residuo beneficia al restaurante.
  */
 export function calculateRestaurantCommission(
   subtotalCents: number,
   commissionPercentage: number,
   commissionMode: string,
-  items: Array<{ total_cents: number; commission_percentage?: number | null }>
+  items: Array<{ total_cents: number; commission_percentage?: number | null }>,
+  commissionType?: string,
+  commissionFixedCents?: number
 ): number {
+  // EGRESOS-1: soporte commission_type
+  const type = commissionType || 'percentage';
+
+  if (type === 'none') {
+    return 0;
+  }
+
+  if (type === 'fixed_per_order') {
+    return commissionFixedCents ?? 0;
+  }
+
+  // type === 'percentage' → lógica existente
   if (commissionMode === 'per_item') {
     let total = 0;
     for (const item of items) {

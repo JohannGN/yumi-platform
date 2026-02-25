@@ -1,5 +1,5 @@
 // ============================================================
-// YUMI PLATFORM — CREDITOS-1B
+// YUMI PLATFORM — CREDITOS-1B + EGRESOS-1
 // lib/credits/process-delivery.ts
 // Corazón del sistema financiero: procesa créditos al entregar pedido
 // ============================================================
@@ -100,10 +100,10 @@ export async function processDeliveryCredits(
     const o = order as OrderData;
     if (!o.rider_id) return fail('Order has no rider assigned');
 
-    // b. Restaurant
+    // b. Restaurant — EGRESOS-1: incluir commission_type y commission_fixed_cents
     const { data: restaurant, error: restErr } = await supabase
       .from('restaurants')
-      .select('id, commission_percentage, commission_mode')
+      .select('id, commission_percentage, commission_mode, commission_type, commission_fixed_cents')
       .eq('id', o.restaurant_id)
       .single();
 
@@ -122,12 +122,14 @@ export async function processDeliveryCredits(
     // PASO 2: Calcular comisiones
     // =====================================================
 
-    // d. Comisión restaurante
+    // d. Comisión restaurante — EGRESOS-1: pasar commission_type + fixed_cents
     const restaurantCommissionCents = calculateRestaurantCommission(
       o.subtotal_cents,
       restaurant.commission_percentage,
       restaurant.commission_mode,
-      o.items
+      o.items,
+      restaurant.commission_type,
+      restaurant.commission_fixed_cents
     );
 
     // e. Split delivery fee

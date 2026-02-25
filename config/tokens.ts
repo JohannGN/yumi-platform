@@ -37,6 +37,9 @@ export {
   userRoleLabels,
   userRoleColors,
   auditEntityTypeLabels,
+  // EGRESOS-1
+  commissionTypeLabels,
+  recurringPeriodLabels,
   // Layout + animations
   layout,
   animations,

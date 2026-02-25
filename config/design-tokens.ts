@@ -252,6 +252,21 @@ export const auditEntityTypeLabels: Record<string, string> = {
   liquidation: 'Liquidación',
 };
 
+// === COMMISSION TYPE LABELS (EGRESOS-1) ===
+export const commissionTypeLabels: Record<string, string> = {
+  percentage: 'Porcentaje',
+  fixed_per_order: 'Cuota fija por pedido',
+  none: 'Sin comisión',
+};
+
+// === RECURRING PERIOD LABELS (EGRESOS-1) ===
+export const recurringPeriodLabels: Record<string, string> = {
+  daily: 'Diario',
+  weekly: 'Semanal',
+  monthly: 'Mensual',
+  yearly: 'Anual',
+};
+
 // === CREDIT ALERT THRESHOLDS ===
 export const creditThresholds = {
   minimum_cents: 10000,   // S/100 — bloqueo para pedidos cash

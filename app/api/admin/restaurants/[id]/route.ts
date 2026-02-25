@@ -137,6 +137,8 @@ export async function PATCH(
     name, slug, description, category_id, address, lat, lng,
     phone, whatsapp, sells_alcohol, is_active, is_open, commission_percentage,
     commission_mode, // FIX-6: 'global' | 'per_item'
+    commission_type, // EGRESOS-1: 'percentage' | 'fixed_per_order' | 'none'
+    commission_fixed_cents, // EGRESOS-1: cuota fija por pedido
     theme_color, estimated_prep_minutes, min_order_cents, display_order,
   } = body;
 
@@ -186,6 +188,37 @@ export async function PATCH(
       return NextResponse.json({ error: 'commission_mode inválido' }, { status: 400 });
     }
     updates.commission_mode = commission_mode;
+  }
+
+  // EGRESOS-1: commission_type — 3 tipos de comisión
+  if (commission_type !== undefined) {
+    if (!['percentage', 'fixed_per_order', 'none'].includes(commission_type)) {
+      return NextResponse.json({ error: 'commission_type inválido' }, { status: 400 });
+    }
+    updates.commission_type = commission_type;
+
+    // Si fixed_per_order, commission_fixed_cents es requerido y > 0
+    if (commission_type === 'fixed_per_order') {
+      const fixedCents = commission_fixed_cents !== undefined
+        ? parseInt(commission_fixed_cents)
+        : 0;
+      if (fixedCents <= 0) {
+        return NextResponse.json({
+          error: 'commission_fixed_cents debe ser mayor a 0 para tipo fixed_per_order',
+        }, { status: 400 });
+      }
+      updates.commission_fixed_cents = fixedCents;
+    }
+
+    // Si none, resetear valores de comisión
+    if (commission_type === 'none') {
+      updates.commission_fixed_cents = 0;
+    }
+  }
+
+  // EGRESOS-1: commission_fixed_cents puede editarse independientemente
+  if (commission_fixed_cents !== undefined && commission_type === undefined) {
+    updates.commission_fixed_cents = parseInt(commission_fixed_cents);
   }
 
   const { data: updated, error } = await supabase
