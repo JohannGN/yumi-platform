@@ -197,8 +197,8 @@ export function SettingsForm({ settings, canEdit, onSave }: SettingsFormProps) {
           {[
             { label: 'WhatsApp YUMI', value: '+51 953 211 536' },
             { label: 'Ciudad actual', value: 'Jaén, Cajamarca' },
-            { label: 'Versión schema BD', value: '2.2 (Post-Chat 6)' },
-            { label: 'Tablas activas', value: '23 (incl. platform_settings, shift_logs)' },
+            { label: 'Versión schema BD', value: '3.1 (Post-EGRESOS-3)' },
+            { label: 'Tablas activas', value: '34 (incl. credits, expenses, audit_log)' },
           ].map(({ label, value }) => (
             <div key={label} className="flex items-center justify-between py-2 border-b border-gray-50 dark:border-gray-800 last:border-0">
               <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
