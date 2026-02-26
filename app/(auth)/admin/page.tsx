@@ -74,17 +74,15 @@ export default function AdminDashboardPage() {
   useEffect(() => { loadChart(); }, [loadChart]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header with DateRangePicker */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">Resumen del negocio</h2>
-        </div>
+        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">Resumen del negocio</h2>
         <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* All 8 KPIs in a single compact grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard
           title="Pedidos totales"
           value={isLoading ? '—' : String(stats?.orders.total ?? 0)}
@@ -117,14 +115,10 @@ export default function AdminDashboardPage() {
           color={colors.semantic.error}
           isLoading={isLoading}
         />
-      </div>
-
-      {/* Second row KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          title="Restaurantes activos"
+          title="Restaurantes"
           value={isLoading ? '—' : String(stats?.restaurants.active ?? 0)}
-          subtitle={isLoading ? '' : `${stats?.restaurants.open_now ?? 0} abiertos ahora`}
+          subtitle={isLoading ? '' : `${stats?.restaurants.open_now ?? 0} abiertos`}
           icon={UtensilsCrossed}
           color={colors.brand.secondary}
           isLoading={isLoading}
@@ -132,15 +126,15 @@ export default function AdminDashboardPage() {
         <KpiCard
           title="Riders en línea"
           value={isLoading ? '—' : String(stats?.riders.online ?? 0)}
-          subtitle={isLoading ? '' : `${stats?.riders.available ?? 0} disponibles · ${stats?.riders.busy ?? 0} ocupados`}
+          subtitle={isLoading ? '' : `${stats?.riders.available ?? 0} disp · ${stats?.riders.busy ?? 0} ocup`}
           icon={Bike}
           color={colors.semantic.info}
           isLoading={isLoading}
         />
         <KpiCard
-          title="Tiempo de entrega"
+          title="Tiempo entrega"
           value={isLoading ? '—' : `${stats?.performance.avg_delivery_minutes ?? 0} min`}
-          subtitle="Promedio desde confirmación"
+          subtitle="Prom. desde confirmación"
           icon={Clock}
           color={colors.semantic.warning}
           isLoading={isLoading}
@@ -148,15 +142,15 @@ export default function AdminDashboardPage() {
         <KpiCard
           title="Tiempo preparación"
           value={isLoading ? '—' : `${stats?.performance.avg_prep_minutes ?? 0} min`}
-          subtitle="Promedio restaurante"
+          subtitle="Prom. restaurante"
           icon={ChefHat}
           color={colors.brand.primaryLight}
           isLoading={isLoading}
         />
       </div>
 
-      {/* Chart + Growth side by side on desktop */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Chart + Growth — matched height */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:h-[300px]">
         <div className="lg:col-span-2">
           <StatsChart data={chartData} isLoading={isChartLoading} />
         </div>
@@ -165,25 +159,25 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Status summary */}
+      {/* Compact status bar */}
       {!isLoading && stats && (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Estado actual del sistema</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              { label: 'Pedidos activos', value: stats.orders.active, dot: colors.brand.primary },
-              { label: 'Restaurantes abiertos', value: stats.restaurants.open_now, dot: colors.semantic.success },
-              { label: 'Riders disponibles', value: stats.riders.available, dot: colors.semantic.info },
-              { label: 'Riders ocupados', value: stats.riders.busy, dot: colors.semantic.warning },
-            ].map(({ label, value, dot }) => (
-              <div key={label} className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dot }} />
-                <div>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 px-5 py-3">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado actual</h3>
+            <div className="flex items-center gap-6 flex-wrap">
+              {[
+                { label: 'Pedidos activos', value: stats.orders.active, dot: colors.brand.primary },
+                { label: 'Restaurantes abiertos', value: stats.restaurants.open_now, dot: colors.semantic.success },
+                { label: 'Riders disponibles', value: stats.riders.available, dot: colors.semantic.info },
+                { label: 'Riders ocupados', value: stats.riders.busy, dot: colors.semantic.warning },
+              ].map(({ label, value, dot }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dot }} />
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">{value}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{label}</span>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
