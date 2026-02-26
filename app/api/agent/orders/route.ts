@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
           .in('id', riderUserIds);
 
         for (const rider of riders) {
-          const u = riderUsers?.find((ru) => ru.id === rider.user_id);
+          const u = riderUsers?.find((ru: { id: string; name: string; phone: string }) => ru.id === rider.user_id);
           if (u) {
             riderMap[rider.id] = { name: u.name, phone: u.phone };
           }

@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, ArrowLeft, Trash2 } from 'lucide-react';
-import type { Restaurant, MenuCategory, MenuItem, ItemModifierGroup } from '@/types/database';
+import type { Restaurant, MenuCategory, MenuItem, ItemModifierGroup, ThemeColor } from '@/types/database';
 import { RestaurantHeader } from '@/components/restaurant/restaurant-header';
 import { MenuCategoryScroll } from '@/components/restaurant/menu-category-scroll';
 import { MenuSection } from '@/components/restaurant/menu-section';
@@ -356,7 +356,7 @@ useEffect(() => {
                 items={group.items}
                 onItemClick={setSelectedItem}
                 isMobile={isMobile}
-                restaurantTheme={restaurant.theme_color}
+                restaurantTheme={restaurant.theme_color as ThemeColor}
                 isRestaurantOpen={restaurant.is_open}
               />
             </div>

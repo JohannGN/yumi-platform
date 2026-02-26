@@ -36,7 +36,7 @@ export function RiderContextProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isOrderLoading, setIsOrderLoading] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const channelRef = useRef<ReturnType<typeof createClient>['channel'] extends (name: string) => infer R ? R : never>();
+  const channelRef = useRef<ReturnType<typeof createClient>['channel'] extends (name: string) => infer R ? R : never>(null);
 
   // Fetch rider profile
   const refetchRider = useCallback(async () => {

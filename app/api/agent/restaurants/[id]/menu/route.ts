@@ -69,7 +69,7 @@ export async function GET(
     // Process items
     const processedItems = (items ?? []).map((item: Record<string, unknown>) => ({
       ...item,
-      item_variants: (item.item_variants ?? []).sort(
+      item_variants: ((item.item_variants as { display_order: number }[]) ?? []).sort(
         (a: { display_order: number }, b: { display_order: number }) =>
           a.display_order - b.display_order
       ),
@@ -106,7 +106,7 @@ export async function GET(
           .in('id', userIds);
 
         const nameMap: Record<string, string> = {};
-        (auditUsers ?? []).forEach((u) => { nameMap[u.id] = u.name; });
+        (auditUsers ?? []).forEach((u: { id: string; name: string }) => { nameMap[u.id] = u.name; });
 
         // Group by item, max 5 each
         for (const log of auditLogs) {
@@ -132,7 +132,7 @@ export async function GET(
     // Attach audit to items
     const itemsWithAudit = processedItems.map((item: Record<string, unknown>) => ({
       ...item,
-      recent_audit: auditByItem[item.id] ?? [],
+      recent_audit: auditByItem[item.id as string] ?? [],
     }));
 
     return NextResponse.json({

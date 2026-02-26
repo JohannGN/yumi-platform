@@ -67,7 +67,7 @@ function formatTimeStr(time: string): string {
 /**
  * Get theme colors for a restaurant's theme_color
  */
-export function getRestaurantTheme(themeColor: ThemeColor) {
+export function getRestaurantTheme(themeColor: string) {
   return restaurantThemes[themeColor] || restaurantThemes.orange;
 }
 

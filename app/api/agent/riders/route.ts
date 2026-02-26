@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         .select('id, code, status')
         .in('id', busyRiderOrderIds);
 
-      (orders ?? []).forEach((o) => {
+      (orders ?? []).forEach((o: { id: string; code: string; status: string }) => {
         orderMap[o.id] = { code: o.code, status: o.status };
       });
     }
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
       if (!a.is_online && b.is_online) return 1;
       if (a.is_available && !b.is_available) return -1;
       if (!a.is_available && b.is_available) return 1;
-      return a.name.localeCompare(b.name);
+      return String(a.name).localeCompare(String(b.name));
     });
 
     return NextResponse.json(result);

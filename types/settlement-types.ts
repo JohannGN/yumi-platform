@@ -93,6 +93,7 @@ export interface SettlementPreview {
   commission_mode?: string; // FIX-6
   delivery_fees_cents?: number;
   bonuses_cents?: number;
+  fuel_reimbursement_cents?: number;
   net_payout_cents: number;
   has_overlap: boolean;
   overlap_period?: string;

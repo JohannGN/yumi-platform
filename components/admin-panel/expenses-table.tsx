@@ -22,7 +22,7 @@ export function ExpensesTable() {
   const [loading, setLoading] = useState(true);
 
   // Filters
-  const [filters, setFilters] = useState<ExpenseFilters>({
+  const [filters, setFilters] = useState<ExpenseFilters>({ city_id: '',
     limit: 20,
     page: 1,
   });
@@ -39,7 +39,7 @@ export function ExpensesTable() {
 
   // Build active filters
   const buildFilters = useCallback((): ExpenseFilters => {
-    const f: ExpenseFilters = { limit: 20, page: filters.page };
+    const f: ExpenseFilters = { city_id: '', limit: 20, page: filters.page };
     if (dateRange.from) f.from = dateRange.from;
     if (dateRange.to) f.to = dateRange.to;
     if (categoryFilter) f.category_id = categoryFilter;

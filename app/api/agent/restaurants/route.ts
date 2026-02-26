@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
     // Filter
     let filtered = processed;
     if (statusFilter === 'open') filtered = processed.filter((r: Record<string, unknown>) => r.is_open);
-    else if (statusFilter === 'closed') filtered = processed.filter((r) => !r.is_open);
+    else if (statusFilter === 'closed') filtered = processed.filter((r: Record<string, unknown>) => !r.is_open);
     else if (statusFilter === 'alert') filtered = processed.filter((r: Record<string, unknown>) => r.alert);
 
     // Sort: alerts first, then open, then closed
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
       if (!a.alert && b.alert) return 1;
       if (a.is_open && !b.is_open) return -1;
       if (!a.is_open && b.is_open) return 1;
-      return a.name.localeCompare(b.name);
+      return String(a.name).localeCompare(String(b.name));
     });
 
     return NextResponse.json(filtered);

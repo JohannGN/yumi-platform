@@ -2170,8 +2170,7 @@ export function CreateOrderForm({ onClose, onCreated }: CreateOrderFormProps) {
               >
                 <CreateOrderSuccess
                   order={createdOrder}
-                  customerName={customer.name}
-                  customerPhone={customer.phone}
+                  customer={{ name: customer.name, phone: customer.phone }}
                   onClose={onClose}
                   onViewOrder={() => {
                     onCreated(createdOrder.code);

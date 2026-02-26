@@ -153,11 +153,11 @@ export function AgentEscalationDetail({ escalation, agentId, agentName, onClose,
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Contexto de la conversación</p>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 max-h-[200px] overflow-y-auto space-y-2">
-                {escalation.conversation_context.map((msg, idx) => (
+                {(escalation.conversation_context as Record<string, unknown>[]).map((msg, idx) => (
                   <div key={idx} className="text-xs text-gray-600 dark:text-gray-400">
-                    {msg.role && (
+                    {Boolean((msg as Record<string, unknown>).role) && (
                       <span className="font-semibold text-gray-500 dark:text-gray-300 mr-1">
-                        {String(msg.role)}:
+                        {String((msg as Record<string, unknown>).role)}:
                       </span>
                     )}
                     <span>{String((msg as Record<string, unknown>).content ?? (msg as Record<string, unknown>).message ?? JSON.stringify(msg))}</span>

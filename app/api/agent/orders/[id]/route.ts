@@ -110,7 +110,7 @@ export async function GET(
       id: h.id,
       from_status: h.from_status,
       to_status: h.to_status,
-      changed_by_name: h.changed_by_user_id ? (historyUserMap[h.changed_by_user_id] ?? null) : null,
+      changed_by_name: h.changed_by_user_id ? (historyUserMap[h.changed_by_user_id as string] ?? null) : null,
       notes: h.notes,
       created_at: h.created_at,
     }));

@@ -92,12 +92,12 @@ export function MenuCategoryScroll({
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside as EventListener);
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside as EventListener);
     };
   }, [isSearchOpen, searchQuery]);
 
