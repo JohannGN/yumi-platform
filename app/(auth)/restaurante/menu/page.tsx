@@ -31,7 +31,7 @@ export default function MenuPage() {
     open: boolean;
     title: string;
     message: string;
-    variant: 'danger' | 'warning';
+    variant: 'danger' | 'success';
     onConfirm: () => void;
   }>({ open: false, title: '', message: '', variant: 'danger', onConfirm: () => {} });
 
@@ -249,12 +249,12 @@ export default function MenuPage() {
 
       {/* Confirm modal */}
       <ConfirmModal
-        open={confirmModal.open}
+        isOpen={confirmModal.open}
         title={confirmModal.title}
         message={confirmModal.message}
         variant={confirmModal.variant}
         onConfirm={confirmModal.onConfirm}
-        onClose={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

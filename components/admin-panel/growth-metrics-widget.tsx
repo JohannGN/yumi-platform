@@ -182,7 +182,7 @@ export function GrowthMetricsWidget() {
                       const d = new Date(label as string);
                       return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' });
                     }}
-                    formatter={(value: number) => [`${value} clientes`, 'Únicos']}
+                    formatter={(value: number | string) => [`${value} clientes`, 'Únicos']}
                   />
                   <Area
                     type="monotone"

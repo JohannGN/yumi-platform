@@ -41,7 +41,7 @@ export function AuditLogPage() {
   // Filters
   const [actionFilter, setActionFilter] = useState('');
   const [entityFilter, setEntityFilter] = useState('');
-  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' });
   const [page, setPage] = useState(1);
 
   const fetchEntries = useCallback(async () => {
@@ -50,8 +50,8 @@ export function AuditLogPage() {
       const params = new URLSearchParams();
       if (actionFilter) params.set('action', actionFilter);
       if (entityFilter) params.set('entity_type', entityFilter);
-      if (dateRange.from) params.set('from', dateRange.from.toISOString());
-      if (dateRange.to) params.set('to', dateRange.to.toISOString());
+      if (dateRange.from) params.set('from', dateRange.from);
+      if (dateRange.to) params.set('to', dateRange.to);
       params.set('page', String(page));
       params.set('limit', String(LIMIT));
 

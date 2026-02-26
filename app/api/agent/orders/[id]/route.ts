@@ -91,7 +91,7 @@ export async function GET(
 
     // Flatten user names in history
     const historyUserIds = [...new Set(
-      (history ?? []).map((h) => h.changed_by_user_id).filter(Boolean) as string[]
+      (history ?? []).map((h: Record<string, unknown>) => h.changed_by_user_id).filter(Boolean) as string[]
     )];
 
     let historyUserMap: Record<string, string> = {};
@@ -106,7 +106,7 @@ export async function GET(
       }
     }
 
-    const flatHistory = (history ?? []).map((h) => ({
+    const flatHistory = (history ?? []).map((h: Record<string, unknown>) => ({
       id: h.id,
       from_status: h.from_status,
       to_status: h.to_status,

@@ -362,7 +362,7 @@ export function UsersListPage() {
                           )}
                         </button>
                       ) : (
-                        <Shield className="w-4 h-4 text-purple-400 mx-auto" title="Propietario — no editable" />
+                        <span title="Propietario — no editable"><Shield className="w-4 h-4 text-purple-400 mx-auto" /></span>
                       )}
                     </td>
                   </motion.tr>

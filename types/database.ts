@@ -503,3 +503,4 @@ export interface CartState {
   items: CartItem[];
   updated_at: string | null;
 }
+export type ThemeColor = 'orange' | 'red' | 'green' | 'blue' | 'purple';

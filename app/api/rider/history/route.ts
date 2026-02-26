@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       : null;
 
     const history = (orders ?? []).map((o) => {
-      const restaurant = o.restaurant as { name: string } | null;
+      const restaurant = o.restaurant as unknown as { name: string } | null;
       const result: Record<string, unknown> = {
         id: o.id,
         code: o.code,

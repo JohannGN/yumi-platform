@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useAgent } from '@/components/agent-panel/agent-context';
 import {
   GenerateRechargeCode,
-  RechargeCodeResult,
   RechargeCodeList,
   LiquidateRestaurant,
   LiquidationHistory,
@@ -13,12 +12,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 type Tab = 'recargas' | 'liquidaciones' | 'riders';
-
-interface RechargeResult {
-  code: string;
-  amount_cents: number;
-  rider_name?: string;
-}
 
 const tabs: { key: Tab; label: string }[] = [
   { key: 'recargas', label: 'Recargas' },
@@ -31,7 +24,6 @@ export default function AgenteCreditosPage() {
   const [activeTab, setActiveTab] = useState<Tab>('recargas');
 
   // Recargas state
-  const [rechargeResult, setRechargeResult] = useState<RechargeResult | null>(null);
   const [rechargeListKey, setRechargeListKey] = useState(0);
 
   // Liquidaciones refresh key
@@ -91,28 +83,10 @@ export default function AgenteCreditosPage() {
           >
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <GenerateRechargeCode
-                onSuccess={(result) => {
-                  setRechargeResult(result);
+                onGenerated={() => {
                   setRechargeListKey(k => k + 1);
                 }}
               />
-              <AnimatePresence mode="wait">
-                {rechargeResult ? (
-                  <motion.div
-                    key="result"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                  >
-                    <RechargeCodeResult
-                      code={rechargeResult.code}
-                      amountCents={rechargeResult.amount_cents}
-                      riderName={rechargeResult.rider_name}
-                      onDismiss={() => setRechargeResult(null)}
-                    />
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
             </div>
             <RechargeCodeList refreshKey={rechargeListKey} />
           </motion.div>

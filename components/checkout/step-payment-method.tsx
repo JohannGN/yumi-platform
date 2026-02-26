@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatPrice, roundUpCents } from '@/lib/utils/rounding';
 import { paymentMethodLabels, colors } from '@/config/tokens';
-import type { PaymentMethod } from '@/types/checkout';
+import type { PaymentMethodType } from '@/types/checkout';
 
 // POS surcharge rate (pasarela de pagos)
 export const POS_SURCHARGE_RATE = 0.045;
@@ -12,13 +12,13 @@ export const POS_SURCHARGE_RATE = 0.045;
 interface StepPaymentMethodProps {
   subtotalCents: number;
   deliveryFeeCents: number;
-  selectedMethod: PaymentMethod;
-  onSelect: (method: PaymentMethod) => void;
+  selectedMethod: PaymentMethodType;
+  onSelect: (method: PaymentMethodType) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-const PAYMENT_OPTIONS: { method: PaymentMethod; emoji: string; description: string }[] = [
+const PAYMENT_OPTIONS: { method: PaymentMethodType; emoji: string; description: string }[] = [
   { method: 'cash', emoji: '💵', description: 'Al recibir tu pedido' },
   { method: 'pos', emoji: '💳', description: 'Tarjeta al recibir' },
   { method: 'yape', emoji: '📱', description: 'Al recibir tu pedido' },

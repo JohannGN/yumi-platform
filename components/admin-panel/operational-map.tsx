@@ -162,10 +162,10 @@ export function OperationalMap() {
 
       // Case 3: First load — include visualization
       const callbackName = '_yumiMapsCallback';
-      (window as Record<string, unknown>)[callbackName] = () => {
+      (window as unknown as Record<string, unknown>)[callbackName] = () => {
         setMapsLoaded(true);
         if (window.google?.maps?.visualization) setVizAvailable(true);
-        delete (window as Record<string, unknown>)[callbackName];
+        delete (window as unknown as Record<string, unknown>)[callbackName];
       };
 
       const script = document.createElement('script');
@@ -173,7 +173,7 @@ export function OperationalMap() {
       script.async = true;
       script.onerror = () => {
         setMapError('No se pudo cargar Google Maps. Si usas un bloqueador de anuncios, desactívalo para este sitio.');
-        delete (window as Record<string, unknown>)[callbackName];
+        delete (window as unknown as Record<string, unknown>)[callbackName];
       };
       document.head.appendChild(script);
     }

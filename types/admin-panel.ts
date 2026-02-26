@@ -26,18 +26,40 @@ export interface PlatformSettings {
 }
 
 export interface AdminStats {
-  total_orders: number;
-  total_revenue_cents: number;
-  active_restaurants: number;
-  active_riders: number;
-  avg_delivery_time_minutes: number;
-  orders_today: number;
-  revenue_today_cents: number;
+  orders: {
+    total: number;
+    active: number;
+    delivered: number;
+    cancelled: number;
+    rejected: number;
+  };
+  revenue: {
+    total_cents: number;
+    delivery_fees_cents: number;
+    subtotal_cents: number;
+    avg_order_cents: number;
+  };
+  restaurants: {
+    total: number;
+    active: number;
+    open_now: number;
+  };
+  riders: {
+    total: number;
+    online: number;
+    available: number;
+    busy: number;
+  };
+  performance: {
+    avg_delivery_minutes: number;
+    avg_prep_minutes: number;
+  };
 }
 
 export interface DailyStats {
+  delivered: number;
+  cancelled: number;
   date: string;
-  orders: number;
   revenue_cents: number;
 }
 
@@ -464,4 +486,17 @@ export interface CreateOrderPayload {
       price_cents: number;
     }>;
   }>;
+}
+
+// Re-exports from additions
+export type { CashInFieldResponse, CashInFieldRider } from './admin-panel-additions';
+export type { ApproveDailyReportPayload } from './admin-panel-additions';
+
+export type StatsPeriod = 'today' | 'week' | 'month' | 'year';
+
+
+export interface AdminContextValue {
+  user: AdminUser | null;
+  isLoading: boolean;
+  cityName: string;
 }

@@ -90,7 +90,7 @@ export async function GET(
 
     // ── Enriquecer historial con nombre del usuario ───────────────────────────
     // Para assigned_rider: mostrar nombre del rider, no del admin que asignó
-    const riderName = (order.riders as { id: string; users: { name: string } | null } | null)?.users?.name ?? null;
+    const riderName = (order.riders as unknown as { id: string; users: { name: string } | null } | null)?.users?.name ?? null;
 
     const historyWithUsers = await Promise.all(
       (history ?? []).map(async (h) => {
@@ -119,8 +119,8 @@ export async function GET(
     type RawRiderJoin = { id: string; users: { name: string; phone: string | null } | null } | null;
     type RawRestJoin  = { id: string; name: string; slug: string } | null;
 
-    const riderJoin = order.riders as RawRiderJoin;
-    const restJoin  = order.restaurants as RawRestJoin;
+    const riderJoin = order.riders as unknown as RawRiderJoin;
+    const restJoin  = order.restaurants as unknown as RawRestJoin;
 
     const flatOrder = {
       ...order,

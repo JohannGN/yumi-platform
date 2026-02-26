@@ -71,8 +71,8 @@ export async function GET(
       .limit(10),
   ]);
 
-  const cats = restaurant.categories as { name: string; emoji: string } | null;
-  const city = restaurant.cities as { name: string; slug: string } | null;
+  const cats = restaurant.categories as unknown as { name: string; emoji: string } | null;
+  const city = restaurant.cities as unknown as { name: string; slug: string } | null;
   const owner = restaurant.users as { id: string; name: string; email: string; phone: string; is_active: boolean; created_at: string } | null;
 
   return NextResponse.json({

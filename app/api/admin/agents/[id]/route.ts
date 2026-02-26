@@ -42,14 +42,14 @@ export async function GET(
       .select('city_id')
       .eq('user_id', id);
 
-    const cityIds = (agentCities ?? []).map((ac) => ac.city_id);
+    const cityIds = (agentCities ?? []).map((ac: { city_id: string }) => ac.city_id);
     const { data: cities } = cityIds.length > 0
       ? await serviceClient.from('cities').select('id, name').in('id', cityIds)
       : { data: [] };
 
     return NextResponse.json({
       ...agent,
-      assigned_cities: (cities ?? []).map((c) => ({
+      assigned_cities: (cities ?? []).map((c: { id: string; name: string }) => ({
         city_id: c.id,
         city_name: c.name,
       })),

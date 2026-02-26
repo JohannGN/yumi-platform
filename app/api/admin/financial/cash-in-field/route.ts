@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
     }>();
 
     for (const r of ridersData ?? []) {
-      const users = r.users as { name: string } | null;
+      const users = r.users as unknown as { name: string } | null;
       riderMap.set(r.id, {
         rider_id: r.id,
         rider_name: users?.name ?? 'Rider desconocido',

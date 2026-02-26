@@ -54,10 +54,10 @@ export async function GET(
 
     // Aplanar joins
     const r = data as Record<string, unknown>;
-    const cat = r.expense_categories as { name: string; icon: string | null } | null;
-    const creator = r.users as { name: string } | null;
-    const riderJoin = r.riders as { id: string; users: { name: string } | null } | null;
-    const rest = r.restaurants as { name: string } | null;
+    const cat = r.expense_categories as unknown as { name: string; icon: string | null } | null;
+    const creator = r.users as unknown as { name: string } | null;
+    const riderJoin = r.riders as unknown as { id: string; users: { name: string } | null } | null;
+    const rest = r.restaurants as unknown as { name: string } | null;
 
     const expense = {
       id: r.id,

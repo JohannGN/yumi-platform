@@ -91,7 +91,7 @@ export async function PATCH(
     const fuelCents = roundUpCents(fuel_reimbursement_cents);
     updates.fuel_reimbursement_cents = fuelCents;
 
-    const rider = existing.rider as {
+    const rider = existing.rider as unknown as {
       pay_type: string;
       fixed_salary_cents: number | null;
       commission_percentage: number | null;

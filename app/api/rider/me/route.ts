@@ -35,7 +35,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Rider no encontrado' }, { status: 404 });
     }
 
-    const cityName = (rider.city as { name: string } | null)?.name ?? '';
+    const cityName = (rider.city as unknown as { name: string } | null)?.name ?? '';
 
     return NextResponse.json({
       id: rider.id,

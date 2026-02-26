@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
 
         if (currentMinutes >= startMin && currentMinutes <= endMin) {
           const rider = offlineRiders.find((r) => r.id === shift.rider_id);
-          const riderName = (rider?.users as { name: string } | null)?.name ?? 'Rider';
+          const riderName = (rider?.users as unknown as { name: string } | null)?.name ?? 'Rider';
           const elapsed = currentMinutes - startMin;
           alerts.push({
             type: 'rider_offline_in_shift',
@@ -194,7 +194,7 @@ export async function GET(request: NextRequest) {
       .lt('last_location_update', new Date(Date.now() - 10 * 60000).toISOString());
 
     for (const r of disappearedRiders ?? []) {
-      const riderName = (r.users as { name: string } | null)?.name ?? 'Rider';
+      const riderName = (r.users as unknown as { name: string } | null)?.name ?? 'Rider';
       const elapsed = r.last_location_update ? minutesSince(r.last_location_update) : 99;
       alerts.push({
         type: 'rider_disappeared',

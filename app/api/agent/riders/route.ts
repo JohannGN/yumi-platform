@@ -59,8 +59,8 @@ export async function GET(request: NextRequest) {
 
     // Get current order codes for busy riders
     const busyRiderOrderIds = (riders ?? [])
-      .filter((r) => r.current_order_id)
-      .map((r) => r.current_order_id as string);
+      .filter((r: Record<string, unknown>) => r.current_order_id)
+      .map((r: Record<string, unknown>) => r.current_order_id as string);
 
     let orderMap: Record<string, { code: string; status: string }> = {};
     if (busyRiderOrderIds.length > 0) {
@@ -75,9 +75,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Flatten
-    const result = (riders ?? []).map((r) => {
-      const userInfo = r.users as { name: string; phone: string };
-      const currentOrder = r.current_order_id ? orderMap[r.current_order_id] : null;
+    const result = (riders ?? []).map((r: Record<string, unknown>) => {
+      const userInfo = r.users as unknown as { name: string; phone: string };
+      const currentOrder = r.current_order_id ? orderMap[r.current_order_id as string] : null;
 
       return {
         id: r.id,
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Sort: online first, then available, then offline
-    result.sort((a, b) => {
+    result.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
       if (a.is_online && !b.is_online) return -1;
       if (!a.is_online && b.is_online) return 1;
       if (a.is_available && !b.is_available) return -1;

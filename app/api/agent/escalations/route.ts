@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     // Filter by city: check related_order_id city_id
     const orderIds = (escalations ?? [])
-      .map((e) => e.related_order_id)
+      .map((e: Record<string, unknown>) => e.related_order_id)
       .filter(Boolean) as string[];
 
     let orderCityMap: Record<string, string> = {};
@@ -87,14 +87,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter escalations: those with orders in this city, or those without orders (general)
-    const filteredEscalations = (escalations ?? []).filter((e) => {
+    const filteredEscalations = (escalations ?? []).filter((e: Record<string, unknown>) => {
       if (!e.related_order_id) return true; // No order linked — show in all cities
-      return orderCityMap[e.related_order_id] === cityId;
+      return orderCityMap[e.related_order_id as string] === cityId;
     });
 
     // Get assigned_to names
     const assignedIds = [...new Set(
-      filteredEscalations.map((e) => e.assigned_to_user_id).filter(Boolean) as string[]
+      filteredEscalations.map((e: Record<string, unknown>) => e.assigned_to_user_id).filter(Boolean) as string[]
     )];
 
     let assignedMap: Record<string, string> = {};
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const flat = filteredEscalations.map((e) => ({
+    const flat = filteredEscalations.map((e: Record<string, unknown>) => ({
       id: e.id,
       customer_phone: e.customer_phone,
       escalation_reason: e.escalation_reason,
@@ -117,9 +117,9 @@ export async function GET(request: NextRequest) {
       status: e.status,
       conversation_context: e.conversation_context,
       assigned_to_user_id: e.assigned_to_user_id,
-      assigned_to_name: e.assigned_to_user_id ? (assignedMap[e.assigned_to_user_id] ?? null) : null,
+      assigned_to_name: e.assigned_to_user_id ? (assignedMap[e.assigned_to_user_id as string] ?? null) : null,
       related_order_id: e.related_order_id,
-      related_order_code: e.related_order_id ? (orderCodeMap[e.related_order_id] ?? null) : null,
+      related_order_code: e.related_order_id ? (orderCodeMap[e.related_order_id as string] ?? null) : null,
       chatwoot_conversation_id: e.chatwoot_conversation_id,
       resolution_notes: e.resolution_notes,
       created_at: e.created_at,

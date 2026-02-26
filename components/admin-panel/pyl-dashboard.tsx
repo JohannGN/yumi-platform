@@ -187,7 +187,7 @@ export function PylDashboard() {
             </button>
           </div>
 
-          <DateRangePicker from={from} to={to} onChange={handleDateChange} />
+          <DateRangePicker from={from} to={to} onChange={(range) => handleDateChange(range.from, range.to)} />
           <button
             onClick={fetchData}
             disabled={loading}

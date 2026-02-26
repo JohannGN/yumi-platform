@@ -160,7 +160,7 @@ export function AgentEscalationDetail({ escalation, agentId, agentName, onClose,
                         {String(msg.role)}:
                       </span>
                     )}
-                    <span>{String(msg.content ?? msg.message ?? JSON.stringify(msg))}</span>
+                    <span>{String((msg as Record<string, unknown>).content ?? (msg as Record<string, unknown>).message ?? JSON.stringify(msg))}</span>
                   </div>
                 ))}
               </div>

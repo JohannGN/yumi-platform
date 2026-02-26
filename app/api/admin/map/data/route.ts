@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     const riders = (riderRows ?? []).map((row) => {
       const r = row as Record<string, unknown>;
-      const u = r.users as { name: string } | null;
+      const u = r.users as unknown as { name: string } | null;
       return {
         id: r.id as string,
         name: u?.name ?? '',
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
         .in('id', riderIds);
       riderNameMap = new Map(
         (rds ?? []).map((r) => {
-          const u = (r as Record<string, unknown>).users as { name: string } | null;
+          const u = (r as Record<string, unknown>).users as unknown as { name: string } | null;
           return [r.id, u?.name ?? ''];
         })
       );

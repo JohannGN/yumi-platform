@@ -32,7 +32,8 @@ export interface Expense {
   linked_restaurant_id: string | null;
   linked_restaurant_name: string | null;  // join aplanado
   created_by: string;
-  creator_name: string;            // join aplanado
+  creator_name: string;
+  city_name?: string;            // join aplanado
   notes: string | null;
   created_at: string;
   updated_at: string;

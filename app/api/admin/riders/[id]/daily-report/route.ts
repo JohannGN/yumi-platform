@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     if (!riderData) return NextResponse.json({ error: 'Rider no encontrado' }, { status: 404 });
 
-    const riderUsers = riderData.users as { name: string } | null;
+    const riderUsers = riderData.users as unknown as { name: string } | null;
 
     // Reporte del dia
     const { data: report } = await supabase

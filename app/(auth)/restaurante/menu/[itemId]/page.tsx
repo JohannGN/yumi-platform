@@ -87,7 +87,8 @@ export default function ItemEditPage({
   const params = use(paramsPromise);
   const { itemId } = params;
   const router = useRouter();
-  const { restaurantId } = useRestaurant();
+  const { restaurant } = useRestaurant();
+  const restaurantId = restaurant?.id;
 
   // State
   const [loading, setLoading] = useState(true);
@@ -112,7 +113,7 @@ export default function ItemEditPage({
     open: boolean;
     title: string;
     message: string;
-    variant: 'danger' | 'warning';
+    variant: 'danger' | 'success';
     onConfirm: () => void;
   }>({ open: false, title: '', message: '', variant: 'danger', onConfirm: () => {} });
 
@@ -642,12 +643,12 @@ export default function ItemEditPage({
       />
 
       <ConfirmModal
-        open={confirmModal.open}
+        isOpen={confirmModal.open}
         title={confirmModal.title}
         message={confirmModal.message}
         variant={confirmModal.variant}
         onConfirm={confirmModal.onConfirm}
-        onClose={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

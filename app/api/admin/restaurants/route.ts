@@ -57,9 +57,9 @@ export async function GET(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const restaurants = (data ?? []).map((r) => {
-    const cats = r.categories as { name: string; emoji: string } | null;
-    const city = r.cities as { name: string } | null;
-    const owner = r.users as { name: string; email: string } | null;
+    const cats = r.categories as unknown as { name: string; emoji: string } | null;
+    const city = r.cities as unknown as { name: string } | null;
+    const owner = r.users as unknown as { name: string; email: string } | null;
     return {
       ...r,
       category_name: cats?.name ?? null,

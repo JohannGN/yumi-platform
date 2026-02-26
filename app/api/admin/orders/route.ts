@@ -107,8 +107,8 @@ export async function GET(req: NextRequest) {
     type RawRestJoin  = { id: string; name: string; slug: string }    | null;
 
     const orders = (data ?? []).map((order) => {
-      const riderJoin = order.riders as RawRiderJoin;
-      const restJoin  = order.restaurants as RawRestJoin;
+      const riderJoin = order.riders as unknown as RawRiderJoin;
+      const restJoin  = order.restaurants as unknown as RawRestJoin;
       return {
         ...order,
         restaurant_name: restJoin?.name  ?? '',

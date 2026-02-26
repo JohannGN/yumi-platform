@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     // ── 2. Mapear campos de users al nivel raíz ───────────────────────────────
     const riders = (rows ?? []).map((row) => {
       const r = row as Record<string, unknown>;
-      const u = r.users as { name: string; email: string; phone: string; is_active: boolean } | null;
+      const u = r.users as unknown as { name: string; email: string; phone: string; is_active: boolean } | null;
       return {
         id:                    r.id,
         user_id:               r.user_id,

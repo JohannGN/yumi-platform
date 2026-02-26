@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
           .eq('date', dateStr)
       : { data: [] };
 
-    const reportMap = new Map<string, typeof reports extends (infer T)[] ? T : never>();
+    const reportMap = new Map<string, Record<string, unknown>>();
     for (const r of reports ?? []) {
       reportMap.set(r.rider_id, r);
     }
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
 
     for (const shift of shiftLogs ?? []) {
       const riderId = shift.rider_id as string;
-      const riderData = shift.riders as { id: string; users: { name: string } | null } | null;
+      const riderData = shift.riders as unknown as { id: string; users: { name: string } | null } | null;
       const riderName = riderData?.users?.name ?? 'Rider desconocido';
 
       // Orders entregados por este rider ese dia
@@ -89,24 +89,24 @@ export async function GET(req: NextRequest) {
       }
 
       const report = reportMap.get(riderId);
-      const declaredCash = report?.cash_collected_cents ?? 0;
-      const declaredPos = report?.pos_collected_cents ?? 0;
-      const declaredYapePlin = report?.yape_plin_collected_cents ?? 0;
+      const declaredCash = Number(report?.cash_collected_cents ?? 0);
+      const declaredPos = Number(report?.pos_collected_cents ?? 0);
+      const declaredYapePlin = Number(report?.yape_plin_collected_cents ?? 0);
       const cashDiscrepancy = declaredCash - expectedCash;
       const hasDiscrepancy = Math.abs(cashDiscrepancy) > maxDiscrepancy;
 
       result.push({
         rider_id: riderId,
         rider_name: riderName,
-        report_id: report?.id ?? null,
-        report_status: report?.status ?? null,
+        report_id: (report?.id as string) ?? null,
+        report_status: (report?.status as string) ?? null,
         shift_started_at: shift.started_at as string | null,
         shift_ended_at: shift.ended_at as string | null,
-        total_deliveries: report?.total_deliveries ?? ((riderOrders ?? []).length),
+        total_deliveries: Number(report?.total_deliveries ?? (riderOrders ?? []).length),
         declared_cash_cents: declaredCash,
         declared_pos_cents: declaredPos,
         declared_yape_plin_cents: declaredYapePlin,
-        notes: report?.notes ?? null,
+        notes: (report?.notes as string) ?? null,
         expected_cash_cents: expectedCash,
         expected_pos_cents: expectedPos,
         expected_yape_plin_cents: expectedYapePlin,

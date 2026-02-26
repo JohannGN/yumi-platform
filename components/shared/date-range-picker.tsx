@@ -12,7 +12,10 @@ export interface DateRange {
 }
 
 interface DateRangePickerProps {
-  value: DateRange;
+  /** Pass as object OR as individual from/to props */
+  value?: DateRange;
+  from?: string;
+  to?: string;
   onChange: (range: DateRange) => void;
   className?: string;
 }
@@ -92,7 +95,13 @@ const presets: Preset[] = [
 ];
 
 // ── Component ──────────────────────────────────────────────
-export function DateRangePicker({ value, onChange, className = '' }: DateRangePickerProps) {
+export function DateRangePicker({ value, from, to, onChange, className = '' }: DateRangePickerProps) {
+  // Support both: value={range} and from={str} to={str}
+  const resolvedValue: DateRange = useMemo(() => {
+    if (value) return value;
+    return { from: from ?? toLocalISO(new Date()), to: to ?? toLocalISO(new Date()) };
+  }, [value, from, to]);
+
   const [open, setOpen] = useState(false);
   const [activePreset, setActivePreset] = useState<PresetKey>('today');
 
@@ -101,9 +110,9 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
       const p = presets.find((pr) => pr.key === activePreset);
       return p?.label ?? 'Hoy';
     }
-    if (value.from === value.to) return formatDateShort(value.from);
-    return `${formatDateShort(value.from)} — ${formatDateShort(value.to)}`;
-  }, [activePreset, value]);
+    if (resolvedValue.from === resolvedValue.to) return formatDateShort(resolvedValue.from);
+    return `${formatDateShort(resolvedValue.from)} — ${formatDateShort(resolvedValue.to)}`;
+  }, [activePreset, resolvedValue]);
 
   const handlePreset = useCallback(
     (preset: Preset) => {
@@ -119,13 +128,13 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
 
   const handleCustomChange = useCallback(
     (field: 'from' | 'to', val: string) => {
-      const next = { ...value, [field]: val };
+      const next = { ...resolvedValue, [field]: val };
       // Ensure from <= to
-      if (field === 'from' && val > value.to) next.to = val;
-      if (field === 'to' && val < value.from) next.from = val;
+      if (field === 'from' && val > resolvedValue.to) next.to = val;
+      if (field === 'to' && val < resolvedValue.from) next.from = val;
       onChange(next);
     },
-    [value, onChange]
+    [resolvedValue, onChange]
   );
 
   return (
@@ -193,7 +202,7 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
                       </label>
                       <input
                         type="date"
-                        value={value.from}
+                        value={resolvedValue.from}
                         max={toLocalISO(new Date())}
                         onChange={(e) => handleCustomChange('from', e.target.value)}
                         className="w-full rounded-md border border-gray-200 dark:border-gray-600 
@@ -208,7 +217,7 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
                       </label>
                       <input
                         type="date"
-                        value={value.to}
+                        value={resolvedValue.to}
                         max={toLocalISO(new Date())}
                         onChange={(e) => handleCustomChange('to', e.target.value)}
                         className="w-full rounded-md border border-gray-200 dark:border-gray-600 

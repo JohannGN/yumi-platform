@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Process and calculate alerts
-    const processed = (restaurants ?? []).map((r) => {
+    const processed = (restaurants ?? []).map((r: Record<string, unknown>) => {
       const hours = (r.opening_hours ?? {}) as Record<string, { open: string; close: string; closed: boolean }>;
       const { shouldBeOpen: sbo } = shouldBeOpen(hours);
       const alert = sbo && !r.is_open;
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
         id: r.id,
         name: r.name,
         slug: r.slug,
-        category_name: (r.categories as { name: string })?.name ?? '',
+        category_name: (r.categories as unknown as { name: string })?.name ?? '',
         is_open: r.is_open,
         is_active: r.is_active,
         accepts_orders: r.accepts_orders,
@@ -101,12 +101,12 @@ export async function GET(request: NextRequest) {
 
     // Filter
     let filtered = processed;
-    if (statusFilter === 'open') filtered = processed.filter((r) => r.is_open);
+    if (statusFilter === 'open') filtered = processed.filter((r: Record<string, unknown>) => r.is_open);
     else if (statusFilter === 'closed') filtered = processed.filter((r) => !r.is_open);
-    else if (statusFilter === 'alert') filtered = processed.filter((r) => r.alert);
+    else if (statusFilter === 'alert') filtered = processed.filter((r: Record<string, unknown>) => r.alert);
 
     // Sort: alerts first, then open, then closed
-    filtered.sort((a, b) => {
+    filtered.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
       if (a.alert && !b.alert) return -1;
       if (!a.alert && b.alert) return 1;
       if (a.is_open && !b.is_open) return -1;

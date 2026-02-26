@@ -37,14 +37,14 @@ export async function GET() {
     }
 
     // Get all agent_cities
-    const agentIds = agents.map((a) => a.id);
+    const agentIds = agents.map((a: { id: string }) => a.id);
     const { data: agentCities } = await serviceClient
       .from('agent_cities')
       .select('user_id, city_id')
       .in('user_id', agentIds);
 
     // Get city names
-    const cityIds = [...new Set((agentCities ?? []).map((ac) => ac.city_id))];
+    const cityIds = [...new Set((agentCities ?? []).map((ac: { city_id: string }) => ac.city_id))];
     const { data: cities } = cityIds.length > 0
       ? await serviceClient.from('cities').select('id, name').in('id', cityIds)
       : { data: [] };
@@ -55,10 +55,10 @@ export async function GET() {
     }
 
     // Flatten
-    const result = agents.map((agent) => {
+    const result = agents.map((agent: { id: string; name: string; email: string; phone: string; is_active: boolean; created_at: string }) => {
       const assignedCities = (agentCities ?? [])
-        .filter((ac) => ac.user_id === agent.id)
-        .map((ac) => ({
+        .filter((ac: { user_id: string; city_id: string }) => ac.user_id === agent.id)
+        .map((ac: { user_id: string; city_id: string }) => ({
           city_id: ac.city_id,
           city_name: cityMap[ac.city_id] ?? 'Desconocida',
         }));

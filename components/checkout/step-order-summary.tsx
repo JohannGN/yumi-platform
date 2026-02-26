@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { formatPrice, roundUpCents } from '@/lib/utils/rounding';
 import { paymentMethodLabels, colors, business } from '@/config/tokens';
 import { useCartStore, generateCartItemKey } from '@/stores/cart-store';
-import type { CustomerInfo, DeliveryAddress, DeliveryFeeResponse, PaymentMethod } from '@/types/checkout';
+import type { CustomerInfo, DeliveryAddress, DeliveryFeeResponse, PaymentMethodType } from '@/types/checkout';
 
 // Format order code with hyphen: P3V6H2 → P3V-6H2
 function formatOrderCode(code: string): string {
@@ -46,7 +46,7 @@ interface StepOrderSummaryProps {
   customerInfo: CustomerInfo;
   deliveryAddress: DeliveryAddress;
   deliveryFee: DeliveryFeeResponse;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PaymentMethodType;
   cashAmountCents?: number;
   restaurantId: string;           // ✅ FIX: added — needed by API
   restaurantName: string;

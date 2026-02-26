@@ -60,11 +60,11 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       .limit(20);
 
     const r = rider as Record<string, unknown>;
-    const u = r.users as { name: string; email: string; phone: string; is_active: boolean } | null;
+    const u = r.users as unknown as { name: string; email: string; phone: string; is_active: boolean } | null;
 
     const orders = (recentOrders ?? []).map((o) => {
       const or = o as Record<string, unknown>;
-      const rest = or.restaurants as { name: string } | null;
+      const rest = or.restaurants as unknown as { name: string } | null;
       return { ...o, restaurant_name: rest?.name ?? '', restaurants: undefined };
     });
 

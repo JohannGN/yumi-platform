@@ -86,8 +86,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Flatten joins: get restaurant and rider names
-    const restaurantIds = [...new Set((orders ?? []).map((o) => o.restaurant_id).filter(Boolean))];
-    const riderIds = [...new Set((orders ?? []).map((o) => o.rider_id).filter(Boolean))];
+    const restaurantIds = [...new Set((orders ?? []).map((o: Record<string, unknown>) => o.restaurant_id).filter(Boolean))];
+    const riderIds = [...new Set((orders ?? []).map((o: Record<string, unknown>) => o.rider_id).filter(Boolean))];
 
     const { data: restaurants } = restaurantIds.length > 0
       ? await serviceClient.from('restaurants').select('id, name').in('id', restaurantIds)
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
         .in('id', riderIds);
 
       if (riders && riders.length > 0) {
-        const riderUserIds = riders.map((r) => r.user_id);
+        const riderUserIds = riders.map((r: Record<string, unknown>) => r.user_id);
         const { data: riderUsers } = await serviceClient
           .from('users')
           .select('id, name, phone')
@@ -123,17 +123,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Build flattened response
-    const flatOrders = (orders ?? []).map((o) => ({
+    const flatOrders = (orders ?? []).map((o: Record<string, unknown>) => ({
       id: o.id,
       code: o.code,
       status: o.status,
       customer_name: o.customer_name,
       customer_phone: o.customer_phone,
-      restaurant_name: restMap[o.restaurant_id] ?? 'Desconocido',
+      restaurant_name: restMap[o.restaurant_id as string] ?? 'Desconocido',
       restaurant_id: o.restaurant_id,
-      rider_name: o.rider_id ? (riderMap[o.rider_id]?.name ?? null) : null,
+      rider_name: o.rider_id ? (riderMap[o.rider_id as string]?.name ?? null) : null,
       rider_id: o.rider_id,
-      rider_phone: o.rider_id ? (riderMap[o.rider_id]?.phone ?? null) : null,
+      rider_phone: o.rider_id ? (riderMap[o.rider_id as string]?.phone ?? null) : null,
       items: o.items,
       subtotal_cents: o.subtotal_cents,
       delivery_fee_cents: o.delivery_fee_cents,

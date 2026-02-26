@@ -67,7 +67,7 @@ export async function GET(
       .order('display_order');
 
     // Process items
-    const processedItems = (items ?? []).map((item) => ({
+    const processedItems = (items ?? []).map((item: Record<string, unknown>) => ({
       ...item,
       item_variants: (item.item_variants ?? []).sort(
         (a: { display_order: number }, b: { display_order: number }) =>
@@ -76,7 +76,7 @@ export async function GET(
     }));
 
     // Recent audit logs (last 5 per item, grouped)
-    const itemIds = processedItems.map((i) => i.id);
+    const itemIds = processedItems.map((i: Record<string, unknown>) => i.id);
     let auditByItem: Record<string, Array<{
       id: string;
       action: string;
@@ -99,7 +99,7 @@ export async function GET(
 
       // Get user names for audit
       if (auditLogs && auditLogs.length > 0) {
-        const userIds = [...new Set(auditLogs.filter((l) => l.changed_by_user_id).map((l) => l.changed_by_user_id))];
+        const userIds = [...new Set(auditLogs.filter((l: Record<string, unknown>) => l.changed_by_user_id).map((l: Record<string, unknown>) => l.changed_by_user_id))];
         const { data: auditUsers } = await sc
           .from('users')
           .select('id, name')
@@ -130,7 +130,7 @@ export async function GET(
     }
 
     // Attach audit to items
-    const itemsWithAudit = processedItems.map((item) => ({
+    const itemsWithAudit = processedItems.map((item: Record<string, unknown>) => ({
       ...item,
       recent_audit: auditByItem[item.id] ?? [],
     }));

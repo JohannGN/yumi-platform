@@ -179,7 +179,7 @@ export function ExpensesTable() {
           <DateRangePicker
             from={dateRange.from}
             to={dateRange.to}
-            onChange={handleDateChange}
+            onChange={(range) => handleDateChange(range.from, range.to)}
           />
 
           <div className="flex flex-col gap-1">

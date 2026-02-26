@@ -360,7 +360,7 @@ export function OrderDetailAdmin({ order, onClose, onRefresh }: OrderDetailAdmin
                             - Formato nuevo (admin): modifiers[].name
                             - Formato viejo (checkout cliente): modifiers[].option_name o modifier_name */}
                         {(() => {
-                          const rawItem = item as Record<string, unknown>;
+                          const rawItem = item as unknown as Record<string, unknown>;
                           const mods = (
                             (rawItem.modifiers as Array<Record<string, unknown>> | undefined) ??
                             (rawItem.selected_modifiers as Array<Record<string, unknown>> | undefined) ??
@@ -392,11 +392,11 @@ export function OrderDetailAdmin({ order, onClose, onRefresh }: OrderDetailAdmin
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
-                          {formatCurrency(itemTotal(item as Record<string, unknown>))}
+                          {formatCurrency(itemTotal(item as unknown as Record<string, unknown>))}
                         </p>
                         {((item.quantity as number) ?? 1) > 1 && (
                           <p className="text-xs text-gray-400 tabular-nums">
-                            {formatCurrency(itemUnitPrice(item as Record<string, unknown>))} c/u
+                            {formatCurrency(itemUnitPrice(item as unknown as Record<string, unknown>))} c/u
                           </p>
                         )}
                       </div>
